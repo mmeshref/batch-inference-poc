@@ -1,0 +1,98 @@
+@page "{id:guid}"
+@model BatchPortal.Pages.Batches.DetailsModel
+
+<h1>Batch @Model.Batch?.Id</h1>
+
+@if (Model.Batch is null)
+{
+    <div class="alert alert-danger">Batch not found.</div>
+}
+else
+{
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Batch Metadata</span>
+            <div>
+                <span class="badge bg-secondary me-2">@Model.Batch.Id</span>
+                <span class="badge bg-primary text-uppercase">@Model.Batch.Status</span>
+                <span class="badge bg-info text-dark text-uppercase">@Model.Batch.GpuPool</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">User</dt>
+                        <dd class="col-sm-8">@Model.Batch.UserId</dd>
+
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">@Model.Batch.CreatedAt.ToLocalTime().ToString("u")</dd>
+
+                        <dt class="col-sm-4">Started</dt>
+                        <dd class="col-sm-8">@Model.Batch.StartedAt?.ToLocalTime().ToString("u") ?? "-"</dd>
+                    </dl>
+                </div>
+                <div class="col-md-6">
+                    <dl class="row">
+                        <dt class="col-sm-4">Completed</dt>
+                        <dd class="col-sm-8">@Model.Batch.CompletedAt?.ToLocalTime().ToString("u") ?? "-"</dd>
+
+                        <dt class="col-sm-4">Error</dt>
+                        <dd class="col-sm-8">@Model.Batch.ErrorMessage ?? "-"</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2>Requests (@Model.Requests.Count)</h2>
+
+    <table class="table table-sm table-striped align-middle">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Status</th>
+                <th>Input</th>
+                <th>Output</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Requests.Any())
+            {
+                <tr>
+                    <td colspan="5" class="text-center">No requests yet.</td>
+                </tr>
+            }
+            else
+            {
+                foreach (var request in Model.Requests)
+                {
+                    <tr>
+                        <td>@request.LineNumber</td>
+                        <td>@request.Status</td>
+                        <td>
+                            <details>
+                                <summary>View</summary>
+                                <pre class="mb-0 mt-2">@request.InputPayload</pre>
+                            </details>
+                        </td>
+                        <td>
+                            <details>
+                                <summary>View</summary>
+                                <pre class="mb-0 mt-2">@request.OutputPayload</pre>
+                            </details>
+                        </td>
+                        <td>
+                            <details>
+                                <summary>View</summary>
+                                <pre class="mb-0 mt-2">@request.ErrorMessage</pre>
+                            </details>
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+}
+

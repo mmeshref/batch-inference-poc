@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-portal
+  labels:
+    app: batch-portal
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-portal
+  template:
+    metadata:
+      labels:
+        app: batch-portal
+    spec:
+      containers:
+        - name: batch-portal
+          image: dwb/batch-portal:v2
+          ports:
+            - containerPort: 8080
+          env:
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-portal
+  labels:
+    app: batch-portal
+spec:
+  selector:
+    app: batch-portal
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
+

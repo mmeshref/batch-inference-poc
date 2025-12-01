@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scheduler
+  template:
+    metadata:
+      labels:
+        app: scheduler
+    spec:
+      containers:
+        - name: scheduler
+          image: dwb/scheduler:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+            - name: Storage__BasePath
+              value: "/data/files"
+            - name: Scheduler__IntervalSeconds
+              value: "5"
+          volumeMounts:
+            - name: user-storage
+              mountPath: /data/files
+      volumes:
+        - name: user-storage
+          persistentVolumeClaim:
+            claimName: user-storage-pvc

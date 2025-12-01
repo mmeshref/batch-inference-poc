@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-worker-dedicated
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpu-worker-dedicated
+  template:
+    metadata:
+      labels:
+        app: gpu-worker-dedicated
+    spec:
+      containers:
+        - name: gpu-worker
+          image: dwb/gpu-worker:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+            - name: Storage__BasePath
+              value: "/data/files"
+            - name: Worker__PollIntervalSeconds
+              value: "1"
+            - name: GPU_POOL
+              value: "dedicated"
+            - name: WORKER_ID
+              value: "dedicated-1"
+          volumeMounts:
+            - name: user-storage
+              mountPath: /data/files
+      volumes:
+        - name: user-storage
+          persistentVolumeClaim:
+            claimName: user-storage-pvc

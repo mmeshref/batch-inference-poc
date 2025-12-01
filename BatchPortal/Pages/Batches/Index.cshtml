@@ -1,0 +1,94 @@
+@page
+@model BatchPortal.Pages.Batches.IndexModel
+@using Microsoft.AspNetCore.Mvc.TagHelpers
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h1 class="mb-0">Batches</h1>
+        <p class="text-muted mb-0">Overview of your recent batch jobs</p>
+    </div>
+</div>
+
+@{
+    var totalBatches = Model.Batches.Count;
+    var completedBatches = Model.Batches.Count(b => b.Status.Equals("completed", StringComparison.OrdinalIgnoreCase));
+    var failedBatches = Model.Batches.Count(b => b.Status.Equals("failed", StringComparison.OrdinalIgnoreCase));
+}
+
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Total Batches</h5>
+                <span class="badge bg-primary fs-5">@totalBatches</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Completed</h5>
+                <span class="badge bg-success fs-5">@completedBatches</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h5 class="card-title">Failed</h5>
+                <span class="badge bg-danger fs-5">@failedBatches</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>GPU Pool</th>
+            <th>Total Requests</th>
+            <th>Created</th>
+            <th>Completed</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (!Model.Batches.Any())
+        {
+            <tr>
+                <td colspan="7" class="text-center">No batches found.</td>
+            </tr>
+        }
+        else
+        {
+            foreach (var batch in Model.Batches)
+            {
+                <tr>
+                    <td>
+                        <a asp-page="/Batches/Details" asp-route-id="@batch.Id">@batch.Id</a>
+                    </td>
+                    <td>@batch.UserId</td>
+                    <td>
+                        @{
+                            var statusClass = batch.Status.ToLowerInvariant() switch
+                            {
+                                "completed" => "bg-success",
+                                "running" or "processing" or "in_progress" => "bg-warning text-dark",
+                                "failed" => "bg-danger",
+                                _ => "bg-secondary"
+                            };
+                        }
+                        <span class="badge @statusClass text-uppercase">@batch.Status</span>
+                    </td>
+                    <td>@batch.GpuPool</td>
+                    <td>@batch.TotalRequests</td>
+                    <td>@batch.CreatedAt.ToLocalTime().ToString("u")</td>
+                    <td>@(batch.CompletedAt?.ToLocalTime().ToString("u") ?? "-")</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+

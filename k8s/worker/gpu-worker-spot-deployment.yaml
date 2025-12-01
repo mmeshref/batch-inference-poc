@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gpu-worker-spot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gpu-worker-spot
+  template:
+    metadata:
+      labels:
+        app: gpu-worker-spot
+    spec:
+      containers:
+        - name: gpu-worker
+          image: dwb/gpu-worker:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+            - name: Storage__BasePath
+              value: "/data/files"
+            - name: Worker__PollIntervalSeconds
+              value: "1"
+            - name: Worker__SpotFailureRate
+              value: "0.1"
+            - name: GPU_POOL
+              value: "spot"
+            - name: WORKER_ID
+              value: "spot-1"
+          volumeMounts:
+            - name: user-storage
+              mountPath: /data/files
+      volumes:
+        - name: user-storage
+          persistentVolumeClaim:
+            claimName: user-storage-pvc

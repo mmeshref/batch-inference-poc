@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: dwb/api-gateway:v1
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ConnectionStrings__Postgres
+              value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+            - name: Storage__BasePath
+              value: "/data/files"
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            - name: user-storage
+              mountPath: /data/files
+      volumes:
+        - name: user-storage
+          persistentVolumeClaim:
+            claimName: user-storage-pvc
