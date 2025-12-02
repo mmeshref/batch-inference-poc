@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alert-rules
+  namespace: doubleword-batch
+  labels:
+    app: prometheus
+data:
+  general-rules.yml: |
+    groups:
+      - name: general-alerts
+        rules:
+          - alert: TargetDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Target {{ $labels.instance }} is down"
+              description: "The target {{ $labels.job }} (instance {{ $labels.instance }}) has been down for more than 1 minute."
+          - alert: High5xxRate
+            expr: sum(rate(http_requests_received_total{code=~"5.."}[5m])) > 0
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Non-zero 5xx rate observed"
+              description: "There have been HTTP 5xx responses over the last 5 minutes."
+

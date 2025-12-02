@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Namespace can be overridden from environment, defaults to doubleword-batch
 NAMESPACE="${NAMESPACE:-doubleword-batch}"
-
-# Image tag can be passed as first argument, defaults to v-dev
 TAG="${1:-v-dev}"
 IMAGE="dwb/api-gateway:${TAG}"
 
-echo ">>> Building ApiGateway image: ${IMAGE}"
+echo ">>> [API] Building image: ${IMAGE}"
 docker build -f docker/ApiGateway.Dockerfile -t "${IMAGE}" .
 
-echo ">>> Updating Kubernetes deployment/api-gateway in namespace ${NAMESPACE} to image ${IMAGE}"
+echo ">>> [API] Applying deployment + service manifests..."
+kubectl apply -n "${NAMESPACE}" -f k8s/api/api-deployment.yaml
+kubectl apply -n "${NAMESPACE}" -f k8s/api/api-service.yaml
+
+echo ">>> [API] Updating deployment image..."
 kubectl set image deployment/api-gateway api-gateway="${IMAGE}" -n "${NAMESPACE}"
 
-echo ">>> Waiting for ApiGateway rollout to complete..."
+echo ">>> [API] Waiting for rollout..."
 kubectl rollout status deployment/api-gateway -n "${NAMESPACE}"
 
-echo ">>> ApiGateway redeployed with image ${IMAGE}"
-
+echo ">>> [API] Redeploy complete."
