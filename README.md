@@ -129,7 +129,6 @@ flowchart TD
     F --> G
 ```
 
-Additional diagrams: `docs/architecture.png`, `docs/DoublewordSystemArchitecture.pdf`.
 
 ## Components
 
