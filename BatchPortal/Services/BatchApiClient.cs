@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace BatchPortal.Services;
 
@@ -12,24 +12,21 @@ public sealed class BatchApiClient
     private const string UserIdHeader = "X-User-Id";
     private readonly HttpClient _httpClient;
     private readonly JsonSerializerOptions _serializerOptions;
+    private readonly ILogger<BatchApiClient> _logger;
 
-    public BatchApiClient(HttpClient httpClient, IConfiguration configuration)
+    public BatchApiClient(HttpClient httpClient, ILogger<BatchApiClient> logger)
     {
-        _httpClient = httpClient;
+        _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+        _logger = logger;
         _serializerOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
             PropertyNameCaseInsensitive = true
         };
 
-        var baseUrl = configuration["ApiGateway:BaseUrl"]
-                      ?? throw new InvalidOperationException("ApiGateway:BaseUrl not configured.");
-
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseAddress))
+        if (_httpClient.BaseAddress is null)
         {
-            throw new InvalidOperationException("ApiGateway:BaseUrl must be an absolute URI.");
+            throw new InvalidOperationException("Batch API client requires HttpClient.BaseAddress to be configured.");
         }
-
-        _httpClient.BaseAddress = baseAddress;
     }
 
     public async Task<string> UploadFileAsync(IFormFile file, string userId, CancellationToken cancellationToken)
@@ -105,7 +102,7 @@ public sealed class BatchApiClient
         return batchResponse.Id.ToString();
     }
 
-    private static async Task EnsureSuccess(HttpResponseMessage response)
+    private async Task EnsureSuccess(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode)
         {
@@ -113,8 +110,9 @@ public sealed class BatchApiClient
         }
 
         var body = await response.Content.ReadAsStringAsync();
-        throw new HttpRequestException(
-            $"API request failed with status {(int)response.StatusCode} ({response.ReasonPhrase}): {body}");
+        _logger.LogWarning("API request failed with status {StatusCode}: {Body}", response.StatusCode, body);
+        throw new InvalidOperationException(
+            $"API request failed with status {(int)response.StatusCode} ({response.ReasonPhrase}).");
     }
 
     private sealed record FileUploadResponse(Guid Id);

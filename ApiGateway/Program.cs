@@ -3,6 +3,16 @@ using Shared;
 using System.IO;
 using Prometheus;
 using ApiGateway;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using ApiGateway.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.WebUtilities;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +25,9 @@ builder.Services.AddDbContext<BatchDbContext>(options =>
         ?? throw new InvalidOperationException("Postgres connection string not configured.");
     options.UseNpgsql(connectionString);
 });
+
+builder.Services.AddScoped<ApiGateway.Services.IFileService, ApiGateway.Services.FileService>();
+builder.Services.AddScoped<ApiGateway.Services.IBatchService, ApiGateway.Services.BatchService>();
 
 builder.Services.AddHostedService<BatchMetricsUpdater>();
 
@@ -35,8 +48,7 @@ app.MapGet("/healthz", () => Results.Ok("ok"));
 
 app.MapPost("/v1/files", async (
     HttpRequest request,
-    BatchDbContext dbContext,
-    IConfiguration configuration,
+    IFileService fileService,
     CancellationToken cancellationToken) =>
 {
     if (!TryGetUserId(request, out var userId, out var errorResult))
@@ -56,50 +68,20 @@ app.MapPost("/v1/files", async (
         return Results.BadRequest("File is required.");
     }
 
-    // 1) Read base path with a default
-    var basePath = configuration["Storage:BasePath"] ?? "/tmp/dwb-files";
-
-    if (string.IsNullOrWhiteSpace(basePath))
-    {
-        return Results.BadRequest("Storage base path not configured.");
-    }
-
-    // 2) Ensure directory exists
-    Directory.CreateDirectory(basePath);
-
-    // 3) Generate id + filename + path
-    var fileId = Guid.NewGuid();
-    var originalExtension = Path.GetExtension(uploadedFile.FileName);
-    var extension = string.Equals(originalExtension, ".jsonl", StringComparison.OrdinalIgnoreCase)
-        ? ".jsonl"
-        : originalExtension;
-    var storedFileName = $"{fileId}{extension}";
-    var destinationPath = Path.Combine(basePath, storedFileName);
-
-    await using (var fileStream = File.Create(destinationPath))
-    {
-        await uploadedFile.CopyToAsync(fileStream, cancellationToken);
-    }
-
-    var fileEntity = new FileEntity
-    {
-        Id = fileId,
-        UserId = userId,
-        Filename = uploadedFile.FileName,
-        StoragePath = destinationPath,
-        Purpose = "batch",
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-
-    dbContext.Files.Add(fileEntity);
-    await dbContext.SaveChangesAsync(cancellationToken);
+    await using var stream = uploadedFile.OpenReadStream();
+    var fileEntity = await fileService.SaveFileAsync(
+        userId,
+        uploadedFile.FileName,
+        stream,
+        purpose: "batch",
+        cancellationToken);
 
     return Results.Ok(new { id = fileEntity.Id });
 });
 
 app.MapPost("/v1/batches", async (
     HttpRequest request,
-    BatchDbContext dbContext,
+    IBatchService batchService,
     CreateBatchRequest createRequest,
     CancellationToken cancellationToken) =>
 {
@@ -108,34 +90,26 @@ app.MapPost("/v1/batches", async (
         return userError!;
     }
 
-    var inputFile = await dbContext.Files
-        .FirstOrDefaultAsync(f => f.Id == createRequest.InputFileId && f.UserId == userId, cancellationToken);
-
-    if (inputFile is null)
-    {
-        return Results.NotFound();
-    }
-
     var gpuPool = GetGpuPool(createRequest.Metadata);
     var priority = GetPriority(createRequest.Metadata);
     var completionWindow = ParseCompletionWindow(createRequest.CompletionWindow);
 
-    var batch = new BatchEntity
+    BatchEntity batch;
+    try
     {
-        Id = Guid.NewGuid(),
-        UserId = userId,
-        InputFileId = createRequest.InputFileId,
-        OutputFileId = null,
-        Status = "queued",
-        Endpoint = "mock-endpoint",
-        CompletionWindow = completionWindow,
-        Priority = priority,
-        GpuPool = gpuPool,
-        CreatedAt = DateTimeOffset.UtcNow
-    };
-
-    dbContext.Batches.Add(batch);
-    await dbContext.SaveChangesAsync(cancellationToken);
+        batch = await batchService.CreateBatchAsync(
+            userId,
+            createRequest.InputFileId,
+            gpuPool,
+            createRequest.UserName,
+            completionWindow,
+            priority,
+            cancellationToken);
+    }
+    catch (InvalidOperationException)
+    {
+        return Results.NotFound();
+    }
 
     return Results.Ok(new { id = batch.Id, status = batch.Status });
 });
@@ -290,7 +264,8 @@ public sealed record CreateBatchRequest(
     Guid InputFileId,
     string? Endpoint,
     string CompletionWindow,
-    Dictionary<string, string>? Metadata
+    Dictionary<string, string>? Metadata,
+    string? UserName
 );
 
 public sealed record BatchResponse(
@@ -307,3 +282,5 @@ public sealed record BatchResponse(
     int CompletedRequests,
     int FailedRequests
 );
+
+public partial class Program { }

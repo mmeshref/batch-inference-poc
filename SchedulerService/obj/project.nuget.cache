@@ -1,9 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "x+/JZNSzguw=",
+  "dgSpecHash": "gdM9fUKg6fE=",
   "success": true,
   "projectFilePath": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/SchedulerService/SchedulerService.csproj",
   "expectedPackageFiles": [
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.analyzers/3.3.4/microsoft.codeanalysis.analyzers.3.3.4.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.common/4.9.2/microsoft.codeanalysis.common.4.9.2.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.csharp/4.9.2/microsoft.codeanalysis.csharp.4.9.2.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore/8.0.4/microsoft.entityframeworkcore.8.0.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore.abstractions/8.0.4/microsoft.entityframeworkcore.abstractions.8.0.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore.analyzers/8.0.4/microsoft.entityframeworkcore.analyzers.8.0.4.nupkg.sha512",
@@ -43,8 +46,11 @@
     "/Users/mmoshrif/.nuget/packages/npgsql.entityframeworkcore.postgresql/8.0.4/npgsql.entityframeworkcore.postgresql.8.0.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/prometheus-net/8.2.1/prometheus-net.8.2.1.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/prometheus-net.aspnetcore/8.2.1/prometheus-net.aspnetcore.8.2.1.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.collections.immutable/8.0.0/system.collections.immutable.8.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/system.diagnostics.diagnosticsource/8.0.0/system.diagnostics.diagnosticsource.8.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/system.diagnostics.eventlog/8.0.0/system.diagnostics.eventlog.8.0.0.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.reflection.metadata/8.0.0/system.reflection.metadata.8.0.0.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/system.text.encodings.web/8.0.0/system.text.encodings.web.8.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/system.text.json/8.0.0/system.text.json.8.0.0.nupkg.sha512"
   ],

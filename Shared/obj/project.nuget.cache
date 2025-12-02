@@ -1,9 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "jeou6CgSwME=",
+  "dgSpecHash": "a29l9SuWBL8=",
   "success": true,
   "projectFilePath": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/Shared/Shared.csproj",
   "expectedPackageFiles": [
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.analyzers/3.3.4/microsoft.codeanalysis.analyzers.3.3.4.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.common/4.9.2/microsoft.codeanalysis.common.4.9.2.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.csharp/4.9.2/microsoft.codeanalysis.csharp.4.9.2.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore/8.0.4/microsoft.entityframeworkcore.8.0.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore.abstractions/8.0.4/microsoft.entityframeworkcore.abstractions.8.0.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.entityframeworkcore.analyzers/8.0.4/microsoft.entityframeworkcore.analyzers.8.0.4.nupkg.sha512",
@@ -18,7 +21,10 @@
     "/Users/mmoshrif/.nuget/packages/microsoft.extensions.options/8.0.0/microsoft.extensions.options.8.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.extensions.primitives/8.0.0/microsoft.extensions.primitives.8.0.0.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/npgsql/8.0.3/npgsql.8.0.3.nupkg.sha512",
-    "/Users/mmoshrif/.nuget/packages/npgsql.entityframeworkcore.postgresql/8.0.4/npgsql.entityframeworkcore.postgresql.8.0.4.nupkg.sha512"
+    "/Users/mmoshrif/.nuget/packages/npgsql.entityframeworkcore.postgresql/8.0.4/npgsql.entityframeworkcore.postgresql.8.0.4.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.collections.immutable/8.0.0/system.collections.immutable.8.0.0.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.reflection.metadata/8.0.0/system.reflection.metadata.8.0.0.nupkg.sha512",
+    "/Users/mmoshrif/.nuget/packages/system.runtime.compilerservices.unsafe/6.0.0/system.runtime.compilerservices.unsafe.6.0.0.nupkg.sha512"
   ],
   "logs": []
 }

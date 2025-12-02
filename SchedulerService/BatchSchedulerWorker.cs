@@ -117,7 +117,12 @@ public sealed class BatchSchedulerWorker : BackgroundService
 
         var lineNumber = 0;
         var nowUtc = DateTimeOffset.UtcNow;
-        var initialPool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
+        var initialPool = SchedulingLogic.DetermineGpuPool(
+            batch.CreatedAt,
+            batch.CompletionWindow,
+            nowUtc,
+            _slaEscalationThreshold,
+            batch.GpuPool);
 
         if (initialPool == "dedicated" && !string.Equals(batch.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase))
         {
@@ -195,10 +200,12 @@ public sealed class BatchSchedulerWorker : BackgroundService
             var currentPool = request.GpuPool;
             var pool = currentPool;
 
-            if (!string.Equals(currentPool, "dedicated", StringComparison.OrdinalIgnoreCase))
-            {
-                pool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
-            }
+            pool = SchedulingLogic.DetermineGpuPool(
+                batch.CreatedAt,
+                batch.CompletionWindow,
+                nowUtc,
+                _slaEscalationThreshold,
+                currentPool);
 
             if (pool == "dedicated" && !string.Equals(currentPool, "dedicated", StringComparison.OrdinalIgnoreCase))
             {
@@ -250,9 +257,12 @@ public sealed class BatchSchedulerWorker : BackgroundService
 
     private static string DetermineGpuPool(BatchEntity batch, DateTimeOffset nowUtc, TimeSpan slaEscalationThreshold)
     {
-        var deadline = batch.CreatedAt + batch.CompletionWindow;
-        var remaining = deadline - nowUtc;
-        return remaining <= slaEscalationThreshold ? "dedicated" : "spot";
+        return SchedulingLogic.DetermineGpuPool(
+            batch.CreatedAt,
+            batch.CompletionWindow,
+            nowUtc,
+            slaEscalationThreshold,
+            batch.GpuPool);
     }
 
     private static async IAsyncEnumerable<string> ReadLinesAsync(

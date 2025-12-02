@@ -14,8 +14,8 @@ builder.Services.AddDbContext<BatchDbContext>(options =>
 
 builder.Services.AddHttpClient<BatchPortal.Services.BatchApiClient>((sp, client) =>
 {
-    var baseUrl = builder.Configuration["ApiGateway:BaseUrl"]
-        ?? throw new InvalidOperationException("ApiGateway:BaseUrl not configured.");
+    var baseUrl = builder.Configuration["Api:BaseUrl"]
+        ?? throw new InvalidOperationException("Api:BaseUrl not configured.");
     client.BaseAddress = new Uri(baseUrl);
 });
 
