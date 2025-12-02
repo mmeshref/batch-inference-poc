@@ -23,17 +23,132 @@ MVP for an OpenAI-style batch inference system: JSONL file upload, batch creatio
 - [Development Guide](#development-guide)
 - [Troubleshooting](#troubleshooting)
 
-## Prerequisites
+## 🔧 Prerequisites
 
-```bash
-brew install dotnet
+Before installing or deploying any part of this system, ensure the following dependencies are installed on your machine:
+
+### 1. System Requirements
+- macOS (Intel or Apple Silicon)  
+- At least **16GB RAM** recommended (due to k8s + images + monitoring stack).
+
+---
+
+## 2. Core Tools
+
+### **Docker Desktop**
+Required to run:
+- Kubernetes cluster
+- Container images
+- Local volumes  
+Install from: https://www.docker.com/products/docker-desktop/
+
+Make sure Kubernetes is enabled in Docker Desktop:
+Docker Desktop → Settings → Kubernetes → Enable Kubernetes
+---
+
+## 3. Kubernetes Tooling
+
+### **kubectl**
+Command-line tool to interact with Kubernetes.
+Install:
 brew install kubectl
-brew install curl jq
-```
 
-- Docker Desktop with Kubernetes enabled
-- kubectl configured for Docker Desktop cluster
-- .NET 8 SDK
+### **Helm (Optional but recommended)**
+Some users may want to install Grafana/Prometheus via Helm.
+Install:
+brew install helm
+
+---
+
+## 4. .NET SDK
+The entire stack is written in **.NET 8**.
+Install:
+brew install –cask dotnet-sdk
+
+Verify:
+dotnet –version
+
+---
+
+## 5. Postgres Client Tools
+Used for debugging, schema inspection, manual database checks.
+
+Install:
+brew install libpq
+brew link –force libpq
+
+Verify:
+psql –version
+
+---
+
+## 6. Kubernetes Monitoring Stack Requirements
+
+### **Prometheus**
+Runs inside Kubernetes as a Deployment.  
+No host installation required, but you need:
+- Correct YAML
+- Persistent volumes
+- RBAC permissions
+
+### **Grafana**
+Runs inside Kubernetes.  
+You need:
+- Service type NodePort
+- Prometheus datasource properly configured
+- Dashboards ConfigMap loaded
+
+### **Alertmanager**
+Runs inside Kubernetes.  
+Requires:
+- Proper alert rules mounted in `/etc/prometheus/rules`
+- Correct Prometheus → Alertmanager config
+
+---
+
+## 7. Optional (but recommended)
+
+### **Lens / k9s**
+GUI or terminal UI for Kubernetes cluster introspection.
+
+Install Lens:
+brew install –cask lens
+
+Install k9s:
+brew install k9s
+
+---
+
+## 8. Git + GitHub CLI
+Recommended for cloning & maintaining the repo.
+
+Install GitHub CLI:
+brew install gh
+
+---
+
+## 9. Make (Optional)
+If you want to convert shell scripts to a Makefile.
+Already available on macOS.
+
+---
+
+# ✔️ Summary of Required Tools
+
+| Component          | Required | Purpose |
+|-------------------|----------|---------|
+| Docker Desktop    | Yes      | K8s cluster + containers |
+| Kubernetes (via Docker Desktop) | Yes | Local cluster |
+| kubectl           | Yes      | Deploy YAML / debug pods |
+| .NET 8 SDK        | Yes      | Build system services |
+| libpq / psql      | Yes      | DB debugging |
+| Grafana           | In cluster | Visual dashboards |
+| Prometheus        | In cluster | Metrics scraping |
+| Alertmanager      | In cluster | Alert routing |
+| Helm              | Optional | Managing deployments |
+| Lens / k9s        | Optional | GUI / TUI cluster tools |
+
+---
 
 ## Local Setup
 
