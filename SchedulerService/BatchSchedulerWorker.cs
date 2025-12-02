@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
     private readonly IServiceProvider _services;
     private readonly ILogger<BatchSchedulerWorker> _logger;
     private readonly IConfiguration _configuration;
+    private readonly TimeSpan _slaEscalationThreshold;
 
     private static readonly Counter BatchesProcessed = Metrics
     .CreateCounter("batch_scheduler_batches_processed_total", "Batches that have been moved from queued to running.");
@@ -32,6 +34,14 @@ public sealed class BatchSchedulerWorker : BackgroundService
         _services = services;
         _logger = logger;
         _configuration = configuration;
+
+        var thresholdHours = _configuration.GetValue<double?>("Scheduling:SlaEscalationThresholdHours") ?? 2d;
+        if (thresholdHours <= 0)
+        {
+            thresholdHours = 2d;
+        }
+
+        _slaEscalationThreshold = TimeSpan.FromHours(thresholdHours);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -46,6 +56,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
             try
             {
                 await ProcessQueuedBatchesAsync(stoppingToken);
+                await EscalatePendingRequestsAsync(stoppingToken);
             }
             catch (Exception ex)
             {
@@ -105,6 +116,17 @@ public sealed class BatchSchedulerWorker : BackgroundService
         }
 
         var lineNumber = 0;
+        var nowUtc = DateTimeOffset.UtcNow;
+        var initialPool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
+
+        if (initialPool == "dedicated" && !string.Equals(batch.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Batch {BatchId} escalated to dedicated pool at ingestion. TimeUntilDeadline={TimeToDeadline}",
+                batch.Id,
+                (batch.CreatedAt + batch.CompletionWindow) - nowUtc);
+            batch.GpuPool = "dedicated";
+        }
 
         await foreach (var line in ReadLinesAsync(file.StoragePath, cancellationToken))
         {
@@ -117,12 +139,12 @@ public sealed class BatchSchedulerWorker : BackgroundService
             var request = new RequestEntity
             {
                 Id = Guid.NewGuid(),
-                BatchEntityId = batch.Id,
+                BatchId = batch.Id,
                 LineNumber = lineNumber,
                 InputPayload = line,
                 OutputPayload = null,
                 Status = "pending",
-                GpuPool = batch.GpuPool,
+                GpuPool = initialPool,
                 AssignedWorker = null,
                 CreatedAt = DateTimeOffset.UtcNow
             };
@@ -138,6 +160,83 @@ public sealed class BatchSchedulerWorker : BackgroundService
         await db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Batch {BatchId} moved to running with {Count} requests", batch.Id, lineNumber);
+    }
+
+    private async Task EscalatePendingRequestsAsync(CancellationToken cancellationToken)
+    {
+        using var scope = _services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BatchDbContext>();
+
+        var nowUtc = DateTimeOffset.UtcNow;
+
+        var pendingRequests = await db.Requests
+            .Include(r => r.Batch)
+            .Where(r => r.Status == "pending" && r.GpuPool == "spot")
+            .ToListAsync(cancellationToken);
+
+        if (pendingRequests.Count == 0)
+        {
+            return;
+        }
+
+        var updated = false;
+        var escalationsByBatch = new Dictionary<Guid, int>();
+
+        foreach (var request in pendingRequests)
+        {
+            if (request.Batch is null)
+            {
+                _logger.LogWarning("Request {RequestId} missing batch reference; skipping SLA evaluation.", request.Id);
+                continue;
+            }
+
+            var batch = request.Batch;
+            var pool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
+            if (pool == "dedicated" && !string.Equals(request.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase))
+            {
+                var timeToDeadline = (batch.CreatedAt + batch.CompletionWindow) - nowUtc;
+                _logger.LogInformation(
+                    "Escalating request {RequestId} of batch {BatchId} to dedicated pool. TimeUntilDeadline={TimeToDeadline}",
+                    request.Id,
+                    batch.Id,
+                    timeToDeadline);
+
+                request.GpuPool = "dedicated";
+                batch.GpuPool = "dedicated";
+                updated = true;
+                escalationsByBatch[batch.Id] = escalationsByBatch.GetValueOrDefault(batch.Id) + 1;
+            }
+        }
+
+        if (updated)
+        {
+            await db.SaveChangesAsync(cancellationToken);
+
+            foreach (var kvp in escalationsByBatch)
+            {
+                var batch = pendingRequests.FirstOrDefault(r => r.Batch?.Id == kvp.Key)?.Batch;
+                if (batch is null)
+                {
+                    continue;
+                }
+                var deadline = batch.CreatedAt + batch.CompletionWindow;
+                var remainingPending = pendingRequests.Count(r => r.Batch?.Id == kvp.Key && r.GpuPool == "spot");
+
+                _logger.LogInformation(
+                    "Batch {BatchId} escalated to dedicated pool. TimeUntilDeadline={TimeToDeadline}, RequestsEscalated={RequestCount}, RemainingSpotRequests={RemainingSpot}",
+                    kvp.Key,
+                    deadline - nowUtc,
+                    kvp.Value,
+                    remainingPending);
+            }
+        }
+    }
+
+    private static string DetermineGpuPool(BatchEntity batch, DateTimeOffset nowUtc, TimeSpan slaEscalationThreshold)
+    {
+        var deadline = batch.CreatedAt + batch.CompletionWindow;
+        var remaining = deadline - nowUtc;
+        return remaining <= slaEscalationThreshold ? "dedicated" : "spot";
     }
 
     private static async IAsyncEnumerable<string> ReadLinesAsync(

@@ -35,7 +35,7 @@ public sealed class BatchEntity
 public sealed class RequestEntity
 {
     public Guid Id { get; set; }
-    public Guid BatchEntityId { get; set; }
+    public Guid BatchId { get; set; }
     public int LineNumber { get; set; }
     public required string InputPayload { get; set; }
     public string? OutputPayload { get; set; }
@@ -47,7 +47,7 @@ public sealed class RequestEntity
     public DateTimeOffset? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
 
-    public BatchEntity Batch { get; set; }
+    public BatchEntity? Batch { get; set; }
 }
 
 public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : DbContext(options)
@@ -107,7 +107,7 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
         var entity = modelBuilder.Entity<RequestEntity>();
         entity.ToTable("requests");
         entity.HasKey(r => r.Id);
-        entity.Property(r => r.BatchEntityId)
+        entity.Property(r => r.BatchId)
               .IsRequired()
               .HasColumnName("BatchId");
         entity.Property(r => r.LineNumber).IsRequired();
@@ -118,7 +118,7 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
 
         entity.HasOne(r => r.Batch)
               .WithMany(b => b.Requests)
-              .HasForeignKey(r => r.BatchEntityId)
+              .HasForeignKey(r => r.BatchId)
               .OnDelete(DeleteBehavior.Cascade);
     }
 }

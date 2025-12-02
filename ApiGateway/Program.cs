@@ -160,7 +160,7 @@ app.MapGet("/v1/batches/{id:guid}", async (
     }
 
     var requestCounts = await dbContext.Requests
-        .Where(r => r.BatchEntityId == id)
+        .Where(r => r.BatchId == id)
         .GroupBy(r => 1)
         .Select(g => new
         {

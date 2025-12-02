@@ -40,3 +40,4 @@
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/ApiGateway/obj/Debug/net8.0/ref/ApiGateway.dll
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/ApiGateway/bin/Debug/net8.0/Prometheus.NetStandard.dll
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/ApiGateway/bin/Debug/net8.0/Prometheus.AspNetCore.dll
+/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/ApiGateway/obj/Debug/net8.0/ApiGateway.sourcelink.json

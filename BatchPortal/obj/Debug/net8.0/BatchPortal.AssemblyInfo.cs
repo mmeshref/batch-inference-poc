@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("BatchPortal")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+59b4793efed3d46b2226409f30b5fef2a43bb146")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f08f54d44d2ada98523062470cac582f13a0ce9d")]
 [assembly: System.Reflection.AssemblyProductAttribute("BatchPortal")]
 [assembly: System.Reflection.AssemblyTitleAttribute("BatchPortal")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

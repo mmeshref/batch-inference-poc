@@ -110,7 +110,7 @@ public sealed class GpuWorkerService : BackgroundService
         await db.SaveChangesAsync(cancellationToken);
 
         // After processing, check if batch is complete
-        await TryFinalizeBatchAsync(db, request.BatchEntityId, cancellationToken);
+        await TryFinalizeBatchAsync(db, request.BatchId, cancellationToken);
 
         return true;
     }
@@ -188,11 +188,11 @@ public sealed class GpuWorkerService : BackgroundService
         }
 
         var total = await db.Requests
-            .Where(r => r.BatchEntityId == batchId)
+            .Where(r => r.BatchId == batchId)
             .CountAsync(cancellationToken);
 
         var remaining = await db.Requests
-            .Where(r => r.BatchEntityId == batchId && (r.Status == "pending" || r.Status == "running"))
+            .Where(r => r.BatchId == batchId && (r.Status == "pending" || r.Status == "running"))
             .CountAsync(cancellationToken);
 
         if (remaining > 0)
@@ -201,7 +201,7 @@ public sealed class GpuWorkerService : BackgroundService
         }
 
         var failed = await db.Requests
-            .Where(r => r.BatchEntityId == batchId && r.Status == "failed")
+            .Where(r => r.BatchId == batchId && r.Status == "failed")
             .CountAsync(cancellationToken);
 
         // All done (completed or failed). Generate output file.
@@ -213,7 +213,7 @@ public sealed class GpuWorkerService : BackgroundService
         var outputPath = Path.Combine(basePath, outputFileName);
 
         var requests = await db.Requests
-            .Where(r => r.BatchEntityId == batchId)
+            .Where(r => r.BatchId == batchId)
             .OrderBy(r => r.LineNumber)
             .ToListAsync(cancellationToken);
 

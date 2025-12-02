@@ -12,6 +12,13 @@ var connectionString = builder.Configuration.GetConnectionString("Postgres")
 builder.Services.AddDbContext<BatchDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddHttpClient<BatchPortal.Services.BatchApiClient>((sp, client) =>
+{
+    var baseUrl = builder.Configuration["ApiGateway:BaseUrl"]
+        ?? throw new InvalidOperationException("ApiGateway:BaseUrl not configured.");
+    client.BaseAddress = new Uri(baseUrl);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

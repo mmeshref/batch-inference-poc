@@ -10,3 +10,4 @@
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/Shared/obj/Debug/net8.0/refint/Shared.dll
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/Shared/obj/Debug/net8.0/Shared.pdb
 /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/Shared/obj/Debug/net8.0/ref/Shared.dll
+/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/Shared/obj/Debug/net8.0/Shared.sourcelink.json

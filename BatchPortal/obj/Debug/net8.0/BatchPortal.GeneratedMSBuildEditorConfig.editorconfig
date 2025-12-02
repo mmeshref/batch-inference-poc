@@ -18,6 +18,10 @@ build_property.GenerateRazorMetadataSourceChecksumAttributes =
 build_property.MSBuildProjectDirectory = /Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal
 build_property._RazorSourceGeneratorDebug = 
 
+[/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/Pages/Batches/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQmF0Y2hlcy9DcmVhdGUuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/Pages/Batches/Details.cshtml]
 build_metadata.AdditionalFiles.TargetPath = UGFnZXMvQmF0Y2hlcy9EZXRhaWxzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
