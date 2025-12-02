@@ -805,4 +805,4 @@ data:
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
-  namespace: doubleword-batch
+  namespace: batch-inference

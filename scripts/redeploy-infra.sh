@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-doubleword-batch}"
+NAMESPACE="${NAMESPACE:-batch-inference}"
 
 echo ">>> [Infra] Applying namespace..."
 kubectl apply -f k8s/namespace.yaml

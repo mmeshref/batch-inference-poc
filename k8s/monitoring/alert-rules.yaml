@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-alert-rules
-  namespace: doubleword-batch
+  namespace: batch-inference
   labels:
     app: prometheus
 data:

@@ -1,4 +1,4 @@
-# Doubleword Batch Processing POC
+# Batch Processing POC
 
 MVP for an OpenAI-style batch inference system: JSONL file upload, batch creation, SLA-aware scheduling across spot/dedicated GPU workers, automatic escalation/retry, a Batch Portal UI, and full Prometheus/Grafana/Alertmanager monitoring, all running on Kubernetes with PostgreSQL storage.
 
@@ -39,7 +39,7 @@ brew install curl jq
 
 ```bash
 git clone <repo-url>
-cd doubleword-batch-poc
+cd batch-processing-poc
 dotnet restore
 kubectl get nodes
 ```
@@ -63,7 +63,7 @@ dotnet test
 ### Portal access
 
 ```bash
-kubectl port-forward svc/batch-portal 5129:80 -n doubleword-batch
+kubectl port-forward svc/batch-portal 5129:80 -n batch-inference
 ```
 
 Visit [http://localhost:5129](http://localhost:5129).
@@ -180,7 +180,7 @@ dotnet run
 Use `dotnet watch run` for hot reload during development. Inspect logs in Kubernetes via:
 
 ```bash
-kubectl logs -n doubleword-batch <pod-name>
+kubectl logs -n batch-inference <pod-name>
 ```
 
 ## Troubleshooting
@@ -188,7 +188,7 @@ kubectl logs -n doubleword-batch <pod-name>
 | Issue | Resolution |
 |-------|------------|
 | Portal errors when creating batches | Verify Postgres connection string and inspect Postgres pod logs. |
-| API unreachable at `localhost:30080` | Ensure NodePort service exists: `kubectl get svc -n doubleword-batch`. |
+| API unreachable at `localhost:30080` | Ensure NodePort service exists: `kubectl get svc -n batch-inference`. |
 | Prometheus missing rules | Confirm `/etc/prometheus/rules` volume is mounted and `k8s/monitoring/alert-rules.yaml` applied. |
 | “Simulated spot interruption” floods logs | Expected behavior; confirm Scheduler requeues/escalates to dedicated workers. |
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-doubleword-batch}"
+NAMESPACE="${NAMESPACE:-batch-inference}"
 
 echo ">>> [Alertmanager] Applying config + deployment + service..."
 kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/alerting/alertmanager-config.yaml

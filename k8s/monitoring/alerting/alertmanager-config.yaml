@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: alertmanager-config
-  namespace: doubleword-batch
+  namespace: batch-inference
   labels:
     app: alertmanager
 data:

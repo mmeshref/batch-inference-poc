@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-NAMESPACE="${NAMESPACE:-doubleword-batch}"
+NAMESPACE="${NAMESPACE:-batch-inference}"
 TAG="${1:-v-dev}"
 IMAGE="dwb/scheduler:${TAG}"
 
