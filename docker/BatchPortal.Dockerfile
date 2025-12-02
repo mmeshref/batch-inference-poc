@@ -11,7 +11,9 @@ RUN dotnet publish ./BatchPortal/BatchPortal.csproj -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
+ENV ASPNETCORE_URLS=http://+:80
+EXPOSE 80
+
 COPY --from=build /app/publish .
 
 ENTRYPOINT ["dotnet", "BatchPortal.dll"]
-

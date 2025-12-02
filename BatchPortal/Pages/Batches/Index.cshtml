@@ -67,7 +67,9 @@
             {
                 <tr>
                     <td>
-                        <a asp-page="/Batches/Details" asp-route-id="@batch.Id">@batch.Id</a>
+                        <a asp-page="/Batches/Details" asp-route-id="@batch.Id">
+                            <code>@batch.Id</code>
+                        </a>
                     </td>
                     <td>@batch.UserId</td>
                     <td>

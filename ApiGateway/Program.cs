@@ -127,7 +127,7 @@ app.MapPost("/v1/batches", async (
         InputFileId = createRequest.InputFileId,
         OutputFileId = null,
         Status = "queued",
-        Endpoint = createRequest.Endpoint,
+        Endpoint = "mock-endpoint",
         CompletionWindow = completionWindow,
         Priority = priority,
         GpuPool = gpuPool,
@@ -236,17 +236,18 @@ app.Run();
 
 static bool TryGetUserId(HttpRequest request, out string userId, out IResult? errorResult)
 {
-    if (request.Headers.TryGetValue("X-User-Id", out var userIdValues) &&
-        !string.IsNullOrWhiteSpace(userIdValues))
+    if (!request.Headers.TryGetValue("X-User-Id", out var userIdValues) ||
+        Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(userIdValues) ||
+        string.IsNullOrWhiteSpace(userIdValues.ToString()))
     {
-        userId = userIdValues.ToString();
-        errorResult = null;
-        return true;
+        userId = string.Empty;
+        errorResult = Results.BadRequest("Missing or empty X-User-Id header.");
+        return false;
     }
 
-    userId = string.Empty;
-    errorResult = Results.BadRequest("Missing X-User-Id header.");
-    return false;
+    userId = userIdValues.ToString();
+    errorResult = null;
+    return true;
 }
 
 static string GetGpuPool(Dictionary<string, string>? metadata)
@@ -287,7 +288,7 @@ static TimeSpan ParseCompletionWindow(string? input)
 
 public sealed record CreateBatchRequest(
     Guid InputFileId,
-    string Endpoint,
+    string? Endpoint,
     string CompletionWindow,
     Dictionary<string, string>? Metadata
 );

@@ -5,9 +5,10 @@ metadata:
 spec:
   selector:
     app: api-gateway
+  type: NodePort
   ports:
     - name: http
       port: 80
       targetPort: 8080
       protocol: TCP
-  type: ClusterIP
+      nodePort: 30080

@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shared;
 using Prometheus;
+using GpuWorker.Models;
 
 public sealed class GpuWorkerService : BackgroundService
 {
@@ -104,21 +105,55 @@ public sealed class GpuWorkerService : BackgroundService
 
         await db.SaveChangesAsync(cancellationToken);
 
-        // Simulate “GPU” processing
-        await SimulateInferenceAsync(request, cancellationToken);
+        try
+        {
+            await SimulateInferenceAsync(request, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            var requeued = await TryHandleSpotInterruptionAsync(db, request, ex, cancellationToken);
+            if (!requeued)
+            {
+                throw;
+            }
+        }
 
         await db.SaveChangesAsync(cancellationToken);
 
-        // After processing, check if batch is complete
-        await TryFinalizeBatchAsync(db, request.BatchId, cancellationToken);
+        if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+        {
+            await TryFinalizeBatchAsync(db, request.BatchId, cancellationToken);
+        }
 
         return true;
     }
 
     private async Task SimulateInferenceAsync(RequestEntity request, CancellationToken cancellationToken)
     {
-        // Dedicated: low latency, low failure
-        // Spot: higher latency, some failures
+        RequestPayload? payload = null;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(request.InputPayload))
+            {
+                payload = JsonSerializer.Deserialize<RequestPayload>(request.InputPayload);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize request payload for request {RequestId}", request.Id);
+        }
+
+        if (payload?.SleepSeconds is int sleepSeconds && sleepSeconds > 0)
+        {
+            const int maxSeconds = 600;
+            var clamped = Math.Min(sleepSeconds, maxSeconds);
+            _logger.LogInformation(
+                "Simulating slow processing for request {RequestId} with sleep_seconds={SleepSeconds}",
+                request.Id,
+                clamped);
+            await Task.Delay(TimeSpan.FromSeconds(clamped), cancellationToken);
+        }
+
         if (string.Equals(_gpuPool, "dedicated", StringComparison.OrdinalIgnoreCase))
         {
             var delayMs = _random.Next(100, 500);
@@ -146,27 +181,56 @@ public sealed class GpuWorkerService : BackgroundService
 
             if (fail)
             {
-                request.Status = "failed";
-                request.CompletedAt = DateTimeOffset.UtcNow;
-                request.ErrorMessage = "Simulated spot interruption";
-                RequestsFailed.WithLabels(_gpuPool).Inc();
+                throw new InvalidOperationException("Simulated spot interruption");
             }
-            else
-            {
-                var output = new
-                {
-                    input = request.InputPayload,
-                    processed_by = _workerId,
-                    gpu_pool = _gpuPool,
-                    latency_ms = delayMs
-                };
 
-                request.OutputPayload = JsonSerializer.Serialize(output);
-                request.Status = "completed";
-                request.CompletedAt = DateTimeOffset.UtcNow;
-                RequestsCompleted.WithLabels(_gpuPool).Inc();
-            }
+            var output = new
+            {
+                input = request.InputPayload,
+                processed_by = _workerId,
+                gpu_pool = _gpuPool,
+                latency_ms = delayMs
+            };
+
+            request.OutputPayload = JsonSerializer.Serialize(output);
+            request.Status = "completed";
+            request.CompletedAt = DateTimeOffset.UtcNow;
+            RequestsCompleted.WithLabels(_gpuPool).Inc();
         }
+    }
+
+    private async Task<bool> TryHandleSpotInterruptionAsync(
+        BatchDbContext db,
+        RequestEntity request,
+        Exception exception,
+        CancellationToken cancellationToken)
+    {
+        var isSpot = string.Equals(request.GpuPool, "spot", StringComparison.OrdinalIgnoreCase);
+        var isInterruption = exception.Message?.Contains("Simulated spot interruption", StringComparison.OrdinalIgnoreCase) == true;
+
+        if (!isSpot || !isInterruption)
+        {
+            request.Status = "failed";
+            request.CompletedAt = DateTimeOffset.UtcNow;
+            request.ErrorMessage = exception.Message;
+            RequestsFailed.WithLabels(_gpuPool).Inc();
+            return false;
+        }
+
+        _logger.LogInformation(
+            "Request {RequestId} for batch {BatchId} was interrupted on spot and requeued for dedicated processing.",
+            request.Id,
+            request.BatchId);
+
+        request.Status = "pending";
+        request.GpuPool = "dedicated";
+        request.AssignedWorker = null;
+        request.ErrorMessage = exception.Message;
+        request.StartedAt = null;
+        request.CompletedAt = null;
+
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     private async Task TryFinalizeBatchAsync(

@@ -13,21 +13,21 @@
     <div asp-validation-summary="All" class="text-danger"></div>
 
     <div class="mb-3">
+        <label asp-for="UserName" class="form-label">User name</label>
+        <input asp-for="UserName" class="form-control" />
+        <span asp-validation-for="UserName" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
         <label asp-for="InputFile" class="form-label">Input JSONL File</label>
         <input asp-for="InputFile" class="form-control" type="file" />
         <span asp-validation-for="InputFile" class="text-danger"></span>
     </div>
 
     <div class="mb-3">
-        <label asp-for="Endpoint" class="form-label">Endpoint</label>
-        <input asp-for="Endpoint" class="form-control" />
-        <span asp-validation-for="Endpoint" class="text-danger"></span>
-    </div>
-
-    <div class="mb-3">
-        <label asp-for="CompletionWindowHours" class="form-label">Completion Window (hours)</label>
-        <input asp-for="CompletionWindowHours" class="form-control" type="number" min="1" />
-        <span asp-validation-for="CompletionWindowHours" class="text-danger"></span>
+        <label class="form-label">SLA Window</label>
+        <input class="form-control" value="24 hours" readonly />
+        <div class="form-text">Batches currently have a fixed 24-hour completion window.</div>
     </div>
 
     <button type="submit" class="btn btn-primary">Create Batch</button>

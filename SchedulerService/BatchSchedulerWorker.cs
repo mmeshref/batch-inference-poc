@@ -171,7 +171,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
 
         var pendingRequests = await db.Requests
             .Include(r => r.Batch)
-            .Where(r => r.Status == "pending" && r.GpuPool == "spot")
+            .Where(r => r.Status == "pending")
             .ToListAsync(cancellationToken);
 
         if (pendingRequests.Count == 0)
@@ -191,8 +191,16 @@ public sealed class BatchSchedulerWorker : BackgroundService
             }
 
             var batch = request.Batch;
-            var pool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
-            if (pool == "dedicated" && !string.Equals(request.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase))
+
+            var currentPool = request.GpuPool;
+            var pool = currentPool;
+
+            if (!string.Equals(currentPool, "dedicated", StringComparison.OrdinalIgnoreCase))
+            {
+                pool = DetermineGpuPool(batch, nowUtc, _slaEscalationThreshold);
+            }
+
+            if (pool == "dedicated" && !string.Equals(currentPool, "dedicated", StringComparison.OrdinalIgnoreCase))
             {
                 var timeToDeadline = (batch.CreatedAt + batch.CompletionWindow) - nowUtc;
                 _logger.LogInformation(
@@ -205,6 +213,14 @@ public sealed class BatchSchedulerWorker : BackgroundService
                 batch.GpuPool = "dedicated";
                 updated = true;
                 escalationsByBatch[batch.Id] = escalationsByBatch.GetValueOrDefault(batch.Id) + 1;
+            }
+
+            if (string.Equals(request.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase) &&
+                request.ErrorMessage?.Contains("Simulated spot interruption", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                _logger.LogInformation(
+                    "Scheduler is dispatching requeued request {RequestId} (after spot interruption) to dedicated pool.",
+                    request.Id);
             }
         }
 
@@ -220,7 +236,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
                     continue;
                 }
                 var deadline = batch.CreatedAt + batch.CompletionWindow;
-                var remainingPending = pendingRequests.Count(r => r.Batch?.Id == kvp.Key && r.GpuPool == "spot");
+                var remainingPending = pendingRequests.Count(r => r.Batch?.Id == kvp.Key && !string.Equals(r.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase));
 
                 _logger.LogInformation(
                     "Batch {BatchId} escalated to dedicated pool. TimeUntilDeadline={TimeToDeadline}, RequestsEscalated={RequestCount}, RemainingSpotRequests={RemainingSpot}",

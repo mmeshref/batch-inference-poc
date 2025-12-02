@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch-portal
+  namespace: doubleword-batch
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: batch-portal
+  template:
+    metadata:
+      labels:
+        app: batch-portal
+    spec:
+      containers:
+        - name: batch-portal
+          image: dwb/batch-portal:v1
+          ports:
+            - containerPort: 80
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: batch-portal
+  namespace: doubleword-batch
+spec:
+  selector:
+    app: batch-portal
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 31000
+

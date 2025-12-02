@@ -69,13 +69,10 @@ public sealed class BatchApiClient
 
     public async Task<string> CreateBatchAsync(
         string inputFileId,
-        string endpoint,
-        TimeSpan completionWindow,
         string userId,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputFileId);
-        ArgumentException.ThrowIfNullOrWhiteSpace(endpoint);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
 
         if (!Guid.TryParse(inputFileId, out var inputGuid))
@@ -85,8 +82,6 @@ public sealed class BatchApiClient
 
         var payload = new CreateBatchPayload(
             inputGuid,
-            endpoint,
-            completionWindow.ToString("c", CultureInfo.InvariantCulture),
             null);
 
         var json = JsonSerializer.Serialize(payload, _serializerOptions);
@@ -128,8 +123,6 @@ public sealed class BatchApiClient
 
     private sealed record CreateBatchPayload(
         Guid InputFileId,
-        string Endpoint,
-        string CompletionWindow,
         Dictionary<string, string>? Metadata);
 }
 
