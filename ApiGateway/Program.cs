@@ -139,12 +139,12 @@ app.MapGet("/v1/batches/{id:guid}", async (
         .Select(g => new
         {
             Total = g.Count(),
-            Pending = g.Count(r => r.Status == RequestStatus.Queued),
+            Queued = g.Count(r => r.Status == RequestStatus.Queued),
             Running = g.Count(r => r.Status == RequestStatus.Running),
             Completed = g.Count(r => r.Status == RequestStatus.Completed),
             Failed = g.Count(r => r.Status == RequestStatus.Failed)
         })
-        .FirstOrDefaultAsync(cancellationToken) ?? new { Total = 0, Pending = 0, Running = 0, Completed = 0, Failed = 0 };
+        .FirstOrDefaultAsync(cancellationToken) ?? new { Total = 0, Queued = 0, Running = 0, Completed = 0, Failed = 0 };
 
     var response = new BatchResponse(
         batch.Id,
@@ -155,7 +155,7 @@ app.MapGet("/v1/batches/{id:guid}", async (
         batch.StartedAt,
         batch.CompletedAt,
         requestCounts.Total,
-        requestCounts.Pending,
+        requestCounts.Queued,
         requestCounts.Running,
         requestCounts.Completed,
         requestCounts.Failed);
@@ -277,7 +277,7 @@ public sealed record BatchResponse(
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
     int TotalRequests,
-    int PendingRequests,
+    int QueuedRequests,
     int RunningRequests,
     int CompletedRequests,
     int FailedRequests

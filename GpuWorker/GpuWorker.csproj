@@ -16,6 +16,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="GpuWorker.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Shared\Shared.csproj" />
   </ItemGroup>
 </Project>

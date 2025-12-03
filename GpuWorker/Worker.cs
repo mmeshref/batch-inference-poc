@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Shared;
 using Prometheus;
 using GpuWorker.Models;
+using GpuWorker;
 
 public sealed class GpuWorkerService : BackgroundService
 {
@@ -81,29 +82,19 @@ public sealed class GpuWorkerService : BackgroundService
 
         _logger.LogInformation("GpuWorkerService stopping");
     }
+    
 
     private async Task<bool> ProcessOneRequestAsync(CancellationToken cancellationToken)
     {
         using var scope = _services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BatchDbContext>();
 
-        // Claim a pending request for this gpu_pool
-        var request = await db.Requests
-            .Where(r => r.Status == RequestStatus.Queued && r.GpuPool == _gpuPool)
-            .OrderBy(r => r.CreatedAt)
-            .FirstOrDefaultAsync(cancellationToken);
+        var request = await TryDequeueNextRequestAsync(db, _gpuPool, cancellationToken);
 
         if (request is null)
         {
             return false;
         }
-
-        // Mark as running
-        request.Status = RequestStatus.Running;
-        request.AssignedWorker = _workerId;
-        request.StartedAt = DateTimeOffset.UtcNow;
-
-        await db.SaveChangesAsync(cancellationToken);
 
         try
         {
@@ -126,6 +117,42 @@ public sealed class GpuWorkerService : BackgroundService
         }
 
         return true;
+    }
+
+    private async Task<RequestEntity?> TryDequeueNextRequestAsync(
+        BatchDbContext db,
+        string gpuPool,
+        CancellationToken cancellationToken)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        const string queuedStatus = "Queued";
+
+        var next = await db.Requests
+            .FromSqlRaw(@"
+                SELECT *
+                FROM requests
+                WHERE ""Status"" = {0}
+                  AND ""GpuPool"" = {1}
+                ORDER BY ""CreatedAt""
+                FOR UPDATE SKIP LOCKED
+                LIMIT 1
+            ", queuedStatus, gpuPool)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (next is null)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return null;
+        }
+
+        next.Status = RequestStatus.Running;
+        next.AssignedWorker = _workerId;
+        next.StartedAt = DateTimeOffset.UtcNow;
+
+        await db.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        return next;
     }
 
     private async Task SimulateInferenceAsync(RequestEntity request, CancellationToken cancellationToken)
@@ -168,8 +195,7 @@ public sealed class GpuWorkerService : BackgroundService
             };
 
             request.OutputPayload = JsonSerializer.Serialize(output);
-            request.Status = RequestStatus.Completed;
-            request.CompletedAt = DateTimeOffset.UtcNow;
+            RequestStateTransition.MarkCompleted(request, DateTimeOffset.UtcNow);
             RequestsCompleted.WithLabels(_gpuPool).Inc();
         }
         else
@@ -193,8 +219,7 @@ public sealed class GpuWorkerService : BackgroundService
             };
 
             request.OutputPayload = JsonSerializer.Serialize(output);
-            request.Status = RequestStatus.Completed;
-            request.CompletedAt = DateTimeOffset.UtcNow;
+            RequestStateTransition.MarkCompleted(request, DateTimeOffset.UtcNow);
             RequestsCompleted.WithLabels(_gpuPool).Inc();
         }
     }
@@ -210,10 +235,10 @@ public sealed class GpuWorkerService : BackgroundService
 
         if (!isSpot || !isInterruption)
         {
-            request.Status = RequestStatus.Failed;
-            request.CompletedAt = DateTimeOffset.UtcNow;
-            request.ErrorMessage = exception.Message;
+            var message = exception.Message ?? "Unknown error";
+            RequestStateTransition.MarkTerminalFailure(request, DateTimeOffset.UtcNow, message);
             RequestsFailed.WithLabels(_gpuPool).Inc();
+            await db.SaveChangesAsync(cancellationToken);
             return false;
         }
 
@@ -222,12 +247,8 @@ public sealed class GpuWorkerService : BackgroundService
             request.Id,
             request.BatchId);
 
-        request.Status = RequestStatus.Queued;
+        RequestStateTransition.MarkTransientFailureRequeued(request, exception.Message);
         request.GpuPool = "dedicated";
-        request.AssignedWorker = null;
-        request.ErrorMessage = exception.Message;
-        request.StartedAt = null;
-        request.CompletedAt = null;
 
         await db.SaveChangesAsync(cancellationToken);
         return true;

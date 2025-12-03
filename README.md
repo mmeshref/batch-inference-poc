@@ -18,6 +18,7 @@ MVP for an OpenAI-style batch inference system: JSONL file upload, batch creatio
 - [Running & Testing](#running--testing)
 - [System Overview](#system-overview)
 - [End-to-End Flow](#end-to-end-flow)
+- [Request Lifecycle & Queue Semantics](#request-lifecycle--queue-semantics)
 - [Architecture](#architecture)
 - [Components](#components)
 - [Development Guide](#development-guide)
@@ -221,38 +222,77 @@ Implements an OpenAI-like batch processing API with JSONL file upload, batch cre
 2. ApiGateway stores the file and metadata in PostgreSQL.
 3. User creates a batch referencing the uploaded file.
 4. SchedulerService detects the queued batch.
-5. Scheduler splits the file into per-line requests.
-6. Requests are dispatched to spot GPU workers first.
-7. Spot workers process requests; some fail with simulated spot interruptions.
-8. Scheduler retries failed requests and escalates to dedicated workers when SLA risk is detected.
-9. Batch is marked completed once all requests finish (success or failure).
+5. Scheduler splits the file into per-line `RequestEntity` rows with `Status = Queued` and the selected GPU pool (spot/dedicated).
+6. Requests stay persisted in Postgres until a worker dequeues them.
+7. GPU workers repeatedly fetch queued requests for their pool, atomically marking them `Running` via `FOR UPDATE SKIP LOCKED`.
+8. Successful requests transition to `Completed`; terminal failures move to `Failed`; spot interruptions are re-queued.
+9. Batches finalize once every request is either `Completed` or `Failed`.
 10. Portal/API expose batch and request details plus outputs.
+
+---
+
+### Request Lifecycle & Queue Semantics
+
+- **Queued** – request has been persisted and is waiting in the Postgres-backed queue.
+- **Running** – a worker has claimed the request inside a transaction and is processing it.
+- **Completed** – processing finished successfully and output payload was recorded.
+- **Failed** – a terminal error occurred; the request will not be retried.
+- **DeadLettered** – reserved for future DLQ behaviour (not yet used in this POC).
+
+Postgres doubles as the durable queue. Workers select the oldest `Queued` row (ordered by `CreatedAt`) for their GPU pool using `FOR UPDATE SKIP LOCKED`, immediately flip it to `Running`, and commit the transaction so no other worker can double-claim it. This pattern provides safe multi-worker dequeue semantics without a separate message broker.
 
 ---
 
 ## Architecture
 
 ```mermaid
-flowchart TD
-    A[User / Portal] --> B[ApiGateway]
-    B --> C[(Postgres)]
-    C --> D[SchedulerService]
-    D --> E[GPU Worker - Spot]
-    D --> F[GPU Worker - Dedicated]
-    E --> C
-    F --> C
-    subgraph Monitoring
-      G[Prometheus]
-      H[Grafana]
-      I[Alertmanager]
+flowchart LR
+    A[User / Portal] -->|Upload file & create batch| B[Api Gateway]
+    B -->|Create batch + queued requests| C[(Postgres: Batch & Request Store)]
+
+    subgraph Queue["DB-backed queue (per GPU pool)"]
+        C
     end
+
+    C --> D[SchedulerService]
+    D -->|Assign GPU pool & SLA decisions| C
+
+    subgraph SpotWorkers["GPU Worker Pool - Spot"]
+        E1[Spot Worker 1]
+        E2[Spot Worker 2]
+    end
+
+    subgraph DedicatedWorkers["GPU Worker Pool - Dedicated"]
+        F1[Dedicated Worker 1]
+        F2[Dedicated Worker 2]
+    end
+
+    C -->|Dequeue via SKIP LOCKED| E1
+    C -->|Dequeue via SKIP LOCKED| E2
+    C -->|Dequeue via SKIP LOCKED| F1
+    C -->|Dequeue via SKIP LOCKED| F2
+
+    E1 -->|Running → Completed/Failed| C
+    E2 -->|Running → Completed/Failed| C
+    F1 -->|Running → Completed/Failed| C
+    F2 -->|Running → Completed/Failed| C
+
+    C -->|Batch & request status/output| J[Batch Portal UI]
+
+    subgraph Monitoring
+        G[Prometheus]
+        H[Grafana]
+        I[Alertmanager]
+    end
+
     B --> G
     D --> G
-    E --> G
-    F --> G
+    E1 --> G
+    E2 --> G
+    F1 --> G
+    F2 --> G
 ```
 
----
 
 ## Components
 
@@ -347,7 +387,7 @@ Below is a consolidated list of what is currently missing and what would be impl
 **Implementation sketch:**
 
 - Add a `WorkerAutoscaler` hosted service in `SchedulerService` that:
-  - Queries Postgres for `Pending` requests by `GpuPool`.
+  - Queries Postgres for `Queued` requests by `GpuPool`.
   - Computes desired replicas using the ratios above.
   - Exposes metrics such as:
     - `autoscaler_desired_spot_replicas`

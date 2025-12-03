@@ -5,11 +5,11 @@ namespace Shared;
 
 public enum RequestStatus
 {
-    Queued,
-    Running,
-    Completed,
-    Failed,
-    DeadLettered
+    Queued = 0,
+    Running = 1,
+    Completed = 2,
+    Failed = 3,
+    DeadLettered = 4
 }
 
 public sealed class FileEntity
@@ -48,7 +48,7 @@ public sealed class RequestEntity
     public int LineNumber { get; set; }
     public required string InputPayload { get; set; }
     public string? OutputPayload { get; set; }
-    public RequestStatus Status { get; set; }
+    public RequestStatus Status { get; set; } = RequestStatus.Queued;
     public required string GpuPool { get; set; }
     public string? AssignedWorker { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
