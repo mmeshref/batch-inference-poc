@@ -429,7 +429,7 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Load one or more models on startup.
   - Perform tokenization and batching.
   - Report performance metrics (tokens/sec, latency, GPU utilization).
-- Integrate with a model runtime (vLLM / TGI / Triton / custom).
+- Integrate with a inference engines, model runtimes and frameworkd (CUDA / PyTorch / Triton / TensorFlow / vLLM / etc).
 
 ### 6. SLA Enforcement & Observability
 
