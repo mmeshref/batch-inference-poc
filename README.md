@@ -41,11 +41,13 @@ Required to run:
 - Kubernetes cluster
 - Container images
 - Local volumes  
+
 Install from: https://www.docker.com/products/docker-desktop/
 
 Make sure Kubernetes is enabled in Docker Desktop:
 Docker Desktop → Settings → Kubernetes → Enable Kubernetes
----
+
+<hr/>
 
 ### 3. Kubernetes Tooling
 
