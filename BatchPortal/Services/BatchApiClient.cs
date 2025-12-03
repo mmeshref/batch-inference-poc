@@ -29,6 +29,50 @@ public sealed class BatchApiClient
         }
     }
 
+    public Uri? GetOutputFileDownloadUrl(Guid? outputFileId)
+    {
+        if (!outputFileId.HasValue)
+        {
+            return null;
+        }
+
+        var baseUrl = _httpClient.BaseAddress?.ToString()?.TrimEnd('/');
+        if (string.IsNullOrEmpty(baseUrl))
+        {
+            return null;
+        }
+
+        var url = $"{baseUrl}/v1/files/{outputFileId.Value}/raw";
+        return new Uri(url);
+    }
+
+    public async Task<(IReadOnlyList<string> lines, bool truncated)> GetOutputPreviewAsync(
+        Guid outputFileId,
+        int maxLines = 20,
+        CancellationToken cancellationToken = default)
+    {
+        using var response = await _httpClient.GetAsync($"/v1/files/{outputFileId}/raw", cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return (Array.Empty<string>(), false);
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        var lines = new List<string>();
+        string? line;
+        var count = 0;
+        while (count < maxLines && (line = await reader.ReadLineAsync()) != null)
+        {
+            lines.Add(line);
+            count++;
+        }
+
+        var truncated = !reader.EndOfStream;
+        return (lines, truncated);
+    }
+
     public async Task<string> UploadFileAsync(IFormFile file, string userId, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(file);

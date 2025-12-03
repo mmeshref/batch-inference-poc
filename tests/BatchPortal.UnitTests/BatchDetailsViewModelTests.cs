@@ -25,6 +25,7 @@ public class BatchDetailsViewModelTests
         Assert.Equal(1, vm.FailedRequests);
         Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
         Assert.False(vm.IsSlaBreached);
+        Assert.False(vm.HasOutputFile);
     }
 
     [Fact]
@@ -39,6 +40,20 @@ public class BatchDetailsViewModelTests
 
         Assert.True(vm.IsSlaBreached);
         Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
+    }
+
+    [Fact]
+    public void MapToViewModel_WithOutputFile_SetsFlags()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var completionWindow = TimeSpan.FromHours(24);
+        var batch = BuildBatch(createdAt, completionWindow, createdAt.AddHours(1));
+        batch.OutputFileId = Guid.NewGuid();
+
+        var vm = BatchDetailsMapper.Map(batch);
+
+        Assert.True(vm.HasOutputFile);
+        Assert.Equal(batch.OutputFileId, vm.OutputFileId);
     }
 
     private static BatchEntity BuildBatch(DateTimeOffset createdAt, TimeSpan completionWindow, DateTimeOffset? completedAt)

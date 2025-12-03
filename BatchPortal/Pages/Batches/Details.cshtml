@@ -68,6 +68,51 @@
     </div>
 </div>
 
+<h2>Output</h2>
+@if (!Model.Batch.HasOutputFile)
+{
+    <p class="text-muted">No output file has been generated for this batch yet.</p>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-body">
+            <p class="mb-2">
+                <strong>Output file:</strong>
+                @Model.Batch.OutputFileId
+            </p>
+            @if (!string.IsNullOrEmpty(Model.OutputFileDownloadUrl))
+            {
+                <a href="@Model.OutputFileDownloadUrl" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener noreferrer">
+                    Download output file
+                </a>
+            }
+            @if (Model.Batch.OutputPreviewLines.Any())
+            {
+                <hr />
+                <p class="fw-bold mb-1">Preview (first @Model.Batch.OutputPreviewLines.Count line(s)):</p>
+                <pre class="bg-light p-2" style="max-height: 300px; overflow-y: auto;">
+@foreach (var line in Model.Batch.OutputPreviewLines)
+{
+@line
+@: 
+}
+                </pre>
+                @if (Model.Batch.OutputPreviewTruncated)
+                {
+                    <p class="text-muted mb-0">
+                        Preview truncated – download the file to see the full content.
+                    </p>
+                }
+            }
+            else
+            {
+                <p class="text-muted mb-0">No preview available yet.</p>
+            }
+        </div>
+    </div>
+}
+
 <h2>Interruption / Notes</h2>
 @if (!Model.Batch.InterruptionNotes.Any())
 {

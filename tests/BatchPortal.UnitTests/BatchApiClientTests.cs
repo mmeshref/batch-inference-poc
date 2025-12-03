@@ -1,19 +1,55 @@
+using System;
 using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using BatchPortal.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using System.Threading;
-using System.Threading.Tasks;
-using System;
 
 namespace BatchPortal.UnitTests;
 
 public class BatchApiClientTests
 {
+    [Fact]
+    public async Task GetOutputPreviewAsync_ShouldTruncate_WhenMoreLinesThanMax()
+    {
+        var handler = new FakeHandler("line1\nline2\nline3\n");
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("https://localhost")
+        };
+        var client = new BatchApiClient(httpClient, NullLogger<BatchApiClient>.Instance);
+
+        var (lines, truncated) = await client.GetOutputPreviewAsync(Guid.NewGuid(), maxLines: 2, CancellationToken.None);
+
+        Assert.Equal(2, lines.Count);
+        Assert.True(truncated);
+        Assert.Equal("line1", lines[0]);
+        Assert.Equal("line2", lines[1]);
+    }
+
+    private sealed class FakeHandler : HttpMessageHandler
+    {
+        private readonly string _content;
+
+        public FakeHandler(string content)
+        {
+            _content = content;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_content)
+            };
+            return Task.FromResult(response);
+        }
+    }
     private sealed class StubHandler : HttpMessageHandler
     {
         private readonly HttpResponseMessage _response;

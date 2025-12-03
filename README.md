@@ -468,6 +468,7 @@ The `/Batches/Details` page provides a richer view of a single batch:
 - Output file UX:
   - Download the full output file when available.
   - Preview the first few lines inline to validate the contents quickly.
+- Mirrors OpenAI-style batch outputs so operators can visually inspect the first N lines (default 20) directly in the portal or download the full file for downstream processing.
 
 #### Batch Details UX
 
