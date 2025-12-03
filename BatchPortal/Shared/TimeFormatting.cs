@@ -4,17 +4,13 @@ namespace BatchPortal.Shared;
 
 public static class TimeFormatting
 {
-    public static string ToRelative(DateTime? dt) =>
-        dt.HasValue ? ToRelative(dt.Value) : "-";
+    public static string ToRelative(DateTimeOffset? value) =>
+        value.HasValue ? ToRelative(value.Value) : "-";
 
-    public static string ToRelative(DateTimeOffset? dto) =>
-        dto.HasValue ? ToRelative(dto.Value.LocalDateTime) : "-";
-
-    public static string ToRelative(DateTime dt)
+    public static string ToRelative(DateTimeOffset value)
     {
-        var now = DateTime.UtcNow;
-        var value = dt.Kind == DateTimeKind.Utc ? dt : dt.ToUniversalTime();
-        var delta = now - value;
+        var now = DateTimeOffset.UtcNow;
+        var delta = now - value.ToUniversalTime();
 
         if (delta.TotalSeconds < 60)
         {

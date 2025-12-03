@@ -8,31 +8,68 @@
 
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-3">
-        <label class="form-label">Status</label>
-        <select name="Status" class="form-select">
-            <option value="" selected="@(string.IsNullOrEmpty(Model.Status))">All</option>
-            <option value="Queued" selected="@(Model.Status == "Queued")">Queued</option>
-            <option value="Running" selected="@(Model.Status == "Running")">Running</option>
-            <option value="Completed" selected="@(Model.Status == "Completed")">Completed</option>
-            <option value="Failed" selected="@(Model.Status == "Failed")">Failed</option>
+        <label asp-for="Status" class="form-label">Status</label>
+        <select asp-for="Status" class="form-select">
+            @foreach (var s in Model.StatusOptions)
+            {
+                <option value="@s" selected="@(string.Equals(Model.Status ?? "All", s, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                    @s
+                </option>
+            }
         </select>
     </div>
     <div class="col-md-3">
-        <label class="form-label">User</label>
-        <input name="UserId" class="form-control" value="@Model.UserId" />
-    </div>
-    <div class="col-md-3">
-        <label class="form-label">Sort</label>
-        <select name="Sort" class="form-select">
-            <option value="created_desc" selected="@(string.IsNullOrEmpty(Model.Sort) || Model.Sort == "created_desc")">Created (newest first)</option>
-            <option value="created_asc" selected="@(Model.Sort == "created_asc")">Created (oldest first)</option>
+        <label asp-for="Pool" class="form-label">GPU Pool</label>
+        <select asp-for="Pool" class="form-select">
+            @foreach (var p in Model.PoolOptions)
+            {
+                <option value="@p" selected="@(string.Equals(Model.Pool ?? "All", p, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
+                    @p
+                </option>
+            }
         </select>
     </div>
-    <div class="col-md-3 d-flex align-items-end">
-        <button type="submit" class="btn btn-primary me-2">Apply</button>
-        <a asp-page="./Index" class="btn btn-outline-secondary">Reset</a>
+    <div class="col-md-4">
+        <label asp-for="Search" class="form-label">Search (user or batch id)</label>
+        <input asp-for="Search" class="form-control" />
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary w-100">Apply</button>
     </div>
 </form>
+
+@functions {
+    string SortUrl(string column)
+    {
+        var currentSortBy = (Model.SortBy ?? "created").ToLowerInvariant();
+        var currentSortDir = (Model.SortDir ?? "desc").ToLowerInvariant();
+        var nextDir = "asc";
+        if (string.Equals(currentSortBy, column, StringComparison.OrdinalIgnoreCase))
+        {
+            nextDir = currentSortDir == "asc" ? "desc" : "asc";
+        }
+
+        var query = new Dictionary<string, string?>
+        {
+            ["Status"] = Model.Status,
+            ["Pool"] = Model.Pool,
+            ["Search"] = Model.Search,
+            ["SortBy"] = column,
+            ["SortDir"] = nextDir
+        };
+
+        var qs = QueryString.Empty;
+        foreach (var kvp in query)
+        {
+            if (!string.IsNullOrEmpty(kvp.Value))
+            {
+                qs = qs.Add(kvp.Key, kvp.Value);
+            }
+        }
+
+        return $"{Request.Path}{qs}";
+    }
+}
 
 @if (!Model.Batches.Any())
 {
@@ -43,12 +80,12 @@ else
     <table class="table table-sm table-striped align-middle">
         <thead>
             <tr>
-                <th>Created</th>
-                <th>User</th>
-                <th>Status</th>
-                <th>GPU Pool</th>
-                <th>SLA</th>
-                <th>Total Requests</th>
+                <th><a href="@SortUrl("created")">Created</a></th>
+                <th><a href="@SortUrl("user")">User</a></th>
+                <th><a href="@SortUrl("status")">Status</a></th>
+                <th><a href="@SortUrl("gpupool")">GPU Pool</a></th>
+                <th>Requests</th>
+                <th><a href="@SortUrl("completed")">Completed At</a></th>
                 <th></th>
             </tr>
         </thead>
@@ -62,20 +99,13 @@ else
                 <td><status-badge value="@batch.Status"></status-badge></td>
                 <td><pool-badge value="@batch.GpuPool"></pool-badge></td>
                 <td>
-                    @if (!batch.CompletedAt.HasValue)
+                    @batch.CompletedRequests / @batch.TotalRequests
+                    @if (batch.FailedRequests > 0)
                     {
-                        <span class="badge bg-warning">In progress</span>
-                    }
-                    else if (batch.IsSlaBreached)
-                    {
-                        <span class="badge bg-danger">Breached</span>
-                    }
-                    else
-                    {
-                        <span class="badge bg-success">Met</span>
+                        <span class="badge bg-danger ms-1">@batch.FailedRequests failed</span>
                     }
                 </td>
-                <td>@batch.TotalRequests</td>
+                <td>@(batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))</td>
                 <td>
                     <a asp-page="/Batches/Details" asp-route-id="@batch.Id" class="btn btn-sm btn-outline-primary">Details</a>
                 </td>
@@ -84,4 +114,5 @@ else
         </tbody>
     </table>
 }
+
 

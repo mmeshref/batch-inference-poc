@@ -13,7 +13,7 @@ public class HomeDashboardViewModelTests
     [Fact]
     public void BuildDashboard_ComputesAggregationsAndLimitsRecentBatches()
     {
-        var now = new DateTime(2025, 1, 10, 12, 0, 0, DateTimeKind.Utc);
+        var now = new DateTimeOffset(new DateTime(2025, 1, 10, 12, 0, 0, DateTimeKind.Utc));
         var batches = new List<BatchEntity>
         {
             CreateBatch(RequestStatuses.Completed, now.AddHours(-1), completedHoursAfterCreate: 0.5), // completed in window
@@ -41,7 +41,7 @@ public class HomeDashboardViewModelTests
         var expected = batches
             .OrderByDescending(b => b.CreatedAt)
             .Take(10)
-            .Select(b => b.CreatedAt.UtcDateTime)
+            .Select(b => b.CreatedAt)
             .ToList();
         Assert.Equal(expected, sorted);
 

@@ -8,13 +8,13 @@ public sealed class BatchDetailsViewModel
     public string UserId { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string GpuPool { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
-    public DateTime? StartedAt { get; set; }
-    public DateTime? CompletedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? CompletedAt { get; set; }
     public TimeSpan CompletionWindow { get; set; }
     public string? ErrorMessage { get; set; }
     public bool IsSlaBreached { get; set; }
-    public DateTime DeadlineUtc { get; set; }
+    public DateTimeOffset DeadlineUtc { get; set; }
     public int TotalRequests { get; set; }
     public int CompletedRequests { get; set; }
     public int FailedRequests { get; set; }
@@ -33,9 +33,9 @@ public sealed class BatchDetailsViewModel
         public int LineNumber { get; set; }
         public string Status { get; set; } = string.Empty;
         public string GpuPool { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-        public DateTime? StartedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? StartedAt { get; set; }
+        public DateTimeOffset? CompletedAt { get; set; }
         public string? ErrorMessage { get; set; }
         public bool WasInterruptedOnSpot { get; set; }
         public bool WasEscalatedToDedicated { get; set; }

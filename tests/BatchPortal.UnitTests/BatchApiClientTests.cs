@@ -14,6 +14,29 @@ namespace BatchPortal.UnitTests;
 
 public class BatchApiClientTests
 {
+    private sealed class StubHandler : HttpMessageHandler
+    {
+        private readonly HttpResponseMessage _response;
+
+        public StubHandler(HttpResponseMessage response)
+        {
+            _response = response;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_response);
+    }
+
+    private static BatchApiClient CreateClient(HttpResponseMessage response)
+    {
+        var handler = new StubHandler(response);
+        var httpClient = new HttpClient(handler)
+        {
+            BaseAddress = new Uri("http://localhost")
+        };
+        return new BatchApiClient(httpClient, NullLogger<BatchApiClient>.Instance);
+    }
+
     [Fact]
     public async Task GetOutputPreviewAsync_ShouldTruncate_WhenMoreLinesThanMax()
     {
@@ -24,7 +47,10 @@ public class BatchApiClientTests
         };
         var client = new BatchApiClient(httpClient, NullLogger<BatchApiClient>.Instance);
 
-        var (lines, truncated) = await client.GetOutputPreviewAsync(Guid.NewGuid(), maxLines: 2, CancellationToken.None);
+        var (lines, truncated) = await client.GetOutputPreviewAsync(
+            Guid.NewGuid(),
+            maxLines: 2,
+            cancellationToken: CancellationToken.None);
 
         Assert.Equal(2, lines.Count);
         Assert.True(truncated);
@@ -49,28 +75,6 @@ public class BatchApiClientTests
             };
             return Task.FromResult(response);
         }
-    }
-    private sealed class StubHandler : HttpMessageHandler
-    {
-        private readonly HttpResponseMessage _response;
-
-        public StubHandler(HttpResponseMessage response)
-        {
-            _response = response;
-        }
-
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(_response);
-    }
-
-    private static BatchApiClient CreateClient(HttpResponseMessage response)
-    {
-        var handler = new StubHandler(response);
-        var httpClient = new HttpClient(handler)
-        {
-            BaseAddress = new Uri("http://localhost")
-        };
-        return new BatchApiClient(httpClient, NullLogger<BatchApiClient>.Instance);
     }
 
     [Fact]

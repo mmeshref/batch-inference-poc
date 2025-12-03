@@ -19,8 +19,8 @@ public class HomeDashboardViewModel
         public string UserId { get; set; } = string.Empty;
         public string Status { get; set; } = string.Empty;
         public string GpuPool { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-        public DateTime? CompletedAt { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset? CompletedAt { get; set; }
         public bool IsSlaBreached { get; set; }
     }
 }

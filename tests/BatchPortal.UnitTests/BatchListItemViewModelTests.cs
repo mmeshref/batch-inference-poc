@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
-using BatchPortal.Models;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using BatchPortal.Pages.Batches;
+using Microsoft.EntityFrameworkCore;
 using Shared;
 using Xunit;
 
@@ -9,56 +13,97 @@ namespace BatchPortal.UnitTests;
 public class BatchListItemViewModelTests
 {
     [Fact]
-    public void FromEntity_ComputesTotalsAndSla()
+    public async Task IndexModelProjection_ComputesRequestCounts()
     {
-        var createdAt = new DateTimeOffset(new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc));
-        var completionWindow = TimeSpan.FromHours(24);
+        await using var context = CreateContextWithBatch();
+        var model = new IndexModel(context);
 
-        var underDeadline = CreateBatch(createdAt, completionWindow, completionHours: 12, requestCount: 3);
-        var overDeadline = CreateBatch(createdAt, completionWindow, completionHours: 30, requestCount: 5);
+        await model.OnGetAsync(CancellationToken.None);
 
-        var vmUnder = BatchListItemViewModel.FromEntity(underDeadline);
-        var vmOver = BatchListItemViewModel.FromEntity(overDeadline);
-
-        Assert.Equal(3, vmUnder.TotalRequests);
-        Assert.False(vmUnder.IsSlaBreached);
-
-        Assert.Equal(5, vmOver.TotalRequests);
-        Assert.True(vmOver.IsSlaBreached);
+        var vm = Assert.Single(model.Batches);
+        Assert.Equal(3, vm.TotalRequests);
+        Assert.Equal(2, vm.CompletedRequests);
+        Assert.Equal(1, vm.FailedRequests);
     }
 
-    private static BatchEntity CreateBatch(DateTimeOffset createdAt, TimeSpan window, double completionHours, int requestCount)
+    private static BatchDbContext CreateContextWithBatch()
     {
+        var options = new DbContextOptionsBuilder<BatchDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        var context = new BatchDbContext(options);
+
+        var createdAt = DateTimeOffset.UtcNow;
+        var file = new FileEntity
+        {
+            Id = Guid.NewGuid(),
+            UserId = "user-files",
+            Filename = "input.jsonl",
+            StoragePath = "/tmp/input.jsonl",
+            Purpose = "batch",
+            CreatedAt = createdAt
+        };
+
         var batch = new BatchEntity
         {
             Id = Guid.NewGuid(),
-            UserId = "user",
-            InputFileId = Guid.NewGuid(),
+            UserId = "counts-user",
+            InputFileId = file.Id,
             Status = RequestStatuses.Completed,
             Endpoint = "endpoint",
-            CompletionWindow = window,
+            CompletionWindow = TimeSpan.FromHours(24),
             Priority = 1,
             GpuPool = GpuPools.Spot,
             CreatedAt = createdAt,
-            StartedAt = createdAt.AddHours(1),
-            CompletedAt = createdAt.AddHours(completionHours)
+            StartedAt = createdAt.AddMinutes(5),
+            CompletedAt = createdAt.AddHours(2)
         };
 
-        for (var i = 0; i < requestCount; i++)
+        batch.Requests = new List<RequestEntity>
         {
-            batch.Requests.Add(new RequestEntity
+            new()
             {
                 Id = Guid.NewGuid(),
                 BatchId = batch.Id,
-                LineNumber = i,
+                LineNumber = 1,
                 InputPayload = "{}",
                 Status = RequestStatuses.Completed,
                 GpuPool = GpuPools.Spot,
-                CreatedAt = createdAt
-            });
-        }
+                CreatedAt = createdAt,
+                StartedAt = createdAt.AddMinutes(1),
+                CompletedAt = createdAt.AddMinutes(10)
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                BatchId = batch.Id,
+                LineNumber = 2,
+                InputPayload = "{}",
+                Status = RequestStatuses.Completed,
+                GpuPool = GpuPools.Spot,
+                CreatedAt = createdAt,
+                StartedAt = createdAt.AddMinutes(2),
+                CompletedAt = createdAt.AddMinutes(12)
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                BatchId = batch.Id,
+                LineNumber = 3,
+                InputPayload = "{}",
+                Status = RequestStatuses.Failed,
+                GpuPool = GpuPools.Spot,
+                CreatedAt = createdAt,
+                StartedAt = createdAt.AddMinutes(3),
+                CompletedAt = createdAt.AddMinutes(13)
+            }
+        };
 
-        return batch;
+        context.Files.Add(file);
+        context.Batches.Add(batch);
+        context.SaveChanges();
+
+        return context;
     }
 }
 

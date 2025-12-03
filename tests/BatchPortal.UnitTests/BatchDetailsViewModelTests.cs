@@ -23,7 +23,7 @@ public class BatchDetailsViewModelTests
         Assert.Equal(1, vm.RunningRequests);
         Assert.Equal(1, vm.CompletedRequests);
         Assert.Equal(1, vm.FailedRequests);
-        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
+        Assert.Equal(createdAt + completionWindow, vm.DeadlineUtc);
         Assert.False(vm.IsSlaBreached);
         Assert.False(vm.HasOutputFile);
     }
@@ -39,7 +39,7 @@ public class BatchDetailsViewModelTests
         var vm = BatchDetailsMapper.Map(batch);
 
         Assert.True(vm.IsSlaBreached);
-        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
+        Assert.Equal(createdAt + completionWindow, vm.DeadlineUtc);
     }
 
     [Fact]

@@ -23,8 +23,7 @@ public class IndexModel : PageModel
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
-        var windowStart = now.AddHours(-24);
+        var now = DateTimeOffset.UtcNow;
 
         var batches = await _dbContext.Batches
             .AsNoTracking()
@@ -53,7 +52,7 @@ public class IndexModel : PageModel
         }
     }
 
-    internal static HomeDashboardViewModel BuildDashboard(IEnumerable<BatchEntity> batches, DateTime now)
+    internal static HomeDashboardViewModel BuildDashboard(IEnumerable<BatchEntity> batches, DateTimeOffset now)
     {
         var batchList = batches.ToList();
         var windowStart = now.AddHours(-24);
@@ -75,8 +74,8 @@ public class IndexModel : PageModel
                 UserId = b.UserId,
                 Status = b.Status,
                 GpuPool = b.GpuPool,
-                CreatedAt = b.CreatedAt.UtcDateTime,
-                CompletedAt = b.CompletedAt?.UtcDateTime,
+                CreatedAt = b.CreatedAt,
+                CompletedAt = b.CompletedAt,
                 IsSlaBreached = b.CompletedAt.HasValue && b.CompletedAt.Value > b.CreatedAt + b.CompletionWindow
             })
             .ToList();

@@ -450,6 +450,20 @@ The `/Batches` page provides an operator-friendly view over all batches:
   - Total number of requests in the batch.
   - Link to the detailed batch view.
 
+##### Batches list filters and sorting
+
+The `Batches` page is designed to behave like a small operations console:
+
+- Filters:
+  - By status: `All`, `Queued`, `Running`, `Completed`, `Failed`.
+  - By GPU pool: `All`, `spot`, `dedicated`.
+  - Free-text search by user id or batch id.
+- Sorting:
+  - Click on column headers (Created, User, Status, GPU Pool, Completed At) to toggle ascending / descending sort.
+  - Default ordering is by creation time (newest first).
+
+Each batch row shows status and GPU pool with badges, plus basic request counts and failures, so you can quickly spot hot or unhealthy workloads.
+
 #### Batch Details View
 
 The `/Batches/Details` page provides a richer view of a single batch:

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -19,47 +20,87 @@ public sealed class IndexModel : PageModel
         _dbContext = dbContext;
     }
 
-    public IList<BatchListItemViewModel> Batches { get; private set; } = new List<BatchListItemViewModel>();
-
     [BindProperty(SupportsGet = true)]
     public string? Status { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string? UserId { get; set; }
+    public string? Pool { get; set; }
 
     [BindProperty(SupportsGet = true)]
-    public string? Sort { get; set; }
+    public string? Search { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? SortBy { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public string? SortDir { get; set; }
+
+    public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Queued", "Running", "Completed", "Failed" };
+    public IReadOnlyList<string> PoolOptions { get; } = new[] { "All", "spot", "dedicated" };
+
+    public IReadOnlyList<BatchListItemViewModel> Batches { get; private set; } = Array.Empty<BatchListItemViewModel>();
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        var query = _dbContext.Batches.AsQueryable();
+        var query = _dbContext.Batches
+            .Include(b => b.Requests)
+            .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(Status))
+        var status = (Status ?? "All").Trim();
+        if (!string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(status))
         {
-            query = query.Where(b => b.Status == Status);
+            query = query.Where(b => b.Status == status);
         }
 
-        if (!string.IsNullOrWhiteSpace(UserId))
+        var pool = (Pool ?? "All").Trim();
+        if (!string.Equals(pool, "All", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(pool))
         {
-            query = query.Where(b => b.UserId.Contains(UserId));
+            query = query.Where(b => b.GpuPool == pool);
         }
 
-        query = Sort switch
+        if (!string.IsNullOrWhiteSpace(Search))
         {
-            "created_asc" => query.OrderBy(b => b.CreatedAt),
-            "created_desc" or null or "" => query.OrderByDescending(b => b.CreatedAt),
+            var search = Search.Trim();
+            query = query.Where(b =>
+                b.UserId.Contains(search) ||
+                b.Id.ToString().Contains(search));
+        }
+
+        var sortBy = (SortBy ?? "created").ToLowerInvariant();
+        var sortDir = (SortDir ?? "desc").ToLowerInvariant();
+        var sortDesc = sortDir != "asc";
+
+        query = (sortBy, sortDesc) switch
+        {
+            ("status", false) => query.OrderBy(b => b.Status).ThenByDescending(b => b.CreatedAt),
+            ("status", true) => query.OrderByDescending(b => b.Status).ThenByDescending(b => b.CreatedAt),
+            ("user", false) => query.OrderBy(b => b.UserId).ThenByDescending(b => b.CreatedAt),
+            ("user", true) => query.OrderByDescending(b => b.UserId).ThenByDescending(b => b.CreatedAt),
+            ("gpupool", false) => query.OrderBy(b => b.GpuPool).ThenByDescending(b => b.CreatedAt),
+            ("gpupool", true) => query.OrderByDescending(b => b.GpuPool).ThenByDescending(b => b.CreatedAt),
+            ("completed", false) => query.OrderBy(b => b.CompletedAt).ThenByDescending(b => b.CreatedAt),
+            ("completed", true) => query.OrderByDescending(b => b.CompletedAt).ThenByDescending(b => b.CreatedAt),
+            ("created", false) => query.OrderBy(b => b.CreatedAt),
+            ("created", true) => query.OrderByDescending(b => b.CreatedAt),
             _ => query.OrderByDescending(b => b.CreatedAt)
         };
 
         const int pageSize = 50;
 
-        var list = await query
-            .Include(b => b.Requests)
+        Batches = await query
             .Take(pageSize)
+            .Select(b => new BatchListItemViewModel
+            {
+                Id = b.Id,
+                UserId = b.UserId,
+                Status = b.Status,
+                GpuPool = b.GpuPool,
+                CreatedAt = b.CreatedAt,
+                CompletedAt = b.CompletedAt,
+                TotalRequests = b.Requests.Count,
+                CompletedRequests = b.Requests.Count(r => r.Status == RequestStatuses.Completed),
+                FailedRequests = b.Requests.Count(r => r.Status == RequestStatuses.Failed)
+            })
             .ToListAsync(cancellationToken);
-
-        Batches = list
-            .Select(BatchListItemViewModel.FromEntity)
-            .ToList();
     }
 }
