@@ -12,13 +12,35 @@ public sealed class BatchDetailsViewModel
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public TimeSpan CompletionWindow { get; set; }
-    public DateTime SlaDeadline { get; set; }
+    public string? ErrorMessage { get; set; }
     public bool IsSlaBreached { get; set; }
+    public DateTime DeadlineUtc { get; set; }
     public int TotalRequests { get; set; }
-    public int QueuedCount { get; set; }
-    public int RunningCount { get; set; }
-    public int CompletedCount { get; set; }
-    public int FailedCount { get; set; }
-    public string? Notes { get; set; }
+    public int CompletedRequests { get; set; }
+    public int FailedRequests { get; set; }
+    public int QueuedRequests { get; set; }
+    public int RunningRequests { get; set; }
+    public IReadOnlyList<RequestItem> Requests { get; set; } = Array.Empty<RequestItem>();
+    public IReadOnlyList<InterruptionNote> InterruptionNotes { get; set; } = Array.Empty<InterruptionNote>();
+
+    public sealed class RequestItem
+    {
+        public Guid Id { get; set; }
+        public int LineNumber { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string GpuPool { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime? StartedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public string? ErrorMessage { get; set; }
+        public bool WasInterruptedOnSpot { get; set; }
+        public bool WasEscalatedToDedicated { get; set; }
+    }
+
+    public sealed class InterruptionNote
+    {
+        public int LineNumber { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
 }
 

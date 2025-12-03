@@ -4,153 +4,138 @@
     ViewData["Title"] = "Batch Details";
 }
 
-@if (Model.Batch is null)
-{
-    <div class="alert alert-danger">Batch not found.</div>
-    return;
-}
+<h1>Batch @Model.Batch.Id</h1>
 
-<h1>Batch Details</h1>
-
-<div class="card mb-3">
-    <div class="card-body">
-        <h2 class="card-title">Batch <code class="monospaced">@Model.Batch.Id</code></h2>
-        <p class="card-text mb-2">
-            User: <strong>@Model.Batch.UserId</strong><br />
-            Status: <status-badge value="@Model.Batch.Status"></status-badge><br />
-            GPU Pool: <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
-        </p>
-        <div class="row">
-            <div class="col-md-6">
-                <p class="card-text mb-2">
-                    Created: @Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")<br />
-                    Started: @(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")<br />
-                    Completed: @(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")<br />
-                    SLA deadline: @Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Batch Summary</h5>
+                <p><strong>User:</strong> @Model.Batch.UserId</p>
+                <p>
+                    <strong>Status:</strong>
+                    <status-badge value="@Model.Batch.Status"></status-badge>
                 </p>
-            </div>
-            <div class="col-md-6">
-                <p class="card-text mb-2">
-                    SLA status:
-                    @if (Model.Batch.CompletedAt is null)
+                <p>
+                    <strong>GPU Pool:</strong>
+                    <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
+                </p>
+                <p><strong>Created:</strong> @Model.Batch.CreatedAt.ToLocalTime()</p>
+                @if (Model.Batch.StartedAt.HasValue)
+                {
+                    <p><strong>Started:</strong> @Model.Batch.StartedAt.Value.ToLocalTime()</p>
+                }
+                @if (Model.Batch.CompletedAt.HasValue)
+                {
+                    <p><strong>Completed:</strong> @Model.Batch.CompletedAt.Value.ToLocalTime()</p>
+                }
+                <p><strong>Completion window:</strong> @Model.Batch.CompletionWindow</p>
+                <p>
+                    <strong>SLA Deadline:</strong> @Model.Batch.DeadlineUtc.ToLocalTime()
+                    @if (Model.Batch.IsSlaBreached)
                     {
-                        <span class="badge badge-sm bg-warning text-dark">In progress</span>
+                        <span class="badge bg-danger ms-2">SLA Breached</span>
                     }
-                    else if (Model.Batch.IsSlaBreached)
+                    else if (Model.Batch.CompletedAt.HasValue)
                     {
-                        <span class="badge badge-sm bg-danger">Breached</span>
+                        <span class="badge bg-success ms-2">SLA Met</span>
                     }
                     else
                     {
-                        <span class="badge badge-sm bg-success">Met</span>
+                        <span class="badge bg-warning ms-2">In progress</span>
                     }
                 </p>
-                <p class="card-text mb-0">
-                    Requests:
-                    <strong>@Model.Batch.TotalRequests</strong> total
-                    (Queued: @Model.Batch.QueuedCount,
-                    Running: @Model.Batch.RunningCount,
-                    Completed: @Model.Batch.CompletedCount,
-                    Failed: @Model.Batch.FailedCount)
-                </p>
+                @if (!string.IsNullOrEmpty(Model.Batch.ErrorMessage))
+                {
+                    <p class="text-danger"><strong>Error:</strong> @Model.Batch.ErrorMessage</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Requests Summary</h5>
+                <ul class="list-unstyled mb-0">
+                    <li><strong>Total:</strong> @Model.Batch.TotalRequests</li>
+                    <li class="text-success"><strong>Completed:</strong> @Model.Batch.CompletedRequests</li>
+                    <li class="text-danger"><strong>Failed:</strong> @Model.Batch.FailedRequests</li>
+                    <li class="text-warning"><strong>Queued:</strong> @Model.Batch.QueuedRequests</li>
+                    <li class="text-info"><strong>Running:</strong> @Model.Batch.RunningRequests</li>
+                </ul>
             </div>
         </div>
     </div>
 </div>
 
-<div class="timeline mb-4">
-    <h3 class="section-title">Timeline</h3>
-    <div class="timeline-steps">
-        <div class="timeline-step">
-            <div class="timeline-dot timeline-dot-ok"></div>
-            <div class="timeline-label">
-                <strong>Created</strong><br />
-                @Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-            </div>
-        </div>
-        <div class="timeline-step">
-            <div class="timeline-dot @(Model.Batch.StartedAt.HasValue ? "timeline-dot-ok" : string.Empty)"></div>
-            <div class="timeline-label">
-                <strong>Started</strong><br />
-                @(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "Pending")
-            </div>
-        </div>
-        <div class="timeline-step">
-            <div class="@(Model.Batch.CompletedAt.HasValue
-                ? (Model.Batch.IsSlaBreached ? "timeline-dot timeline-dot-danger" : "timeline-dot timeline-dot-ok")
-                : "timeline-dot")"></div>
-            <div class="timeline-label">
-                <strong>Completed</strong><br />
-                @(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "In progress")
-            </div>
-        </div>
-        <div class="timeline-step">
-            <div class="timeline-dot @(Model.Batch.IsSlaBreached ? "timeline-dot-danger" : "timeline-dot-ok")"></div>
-            <div class="timeline-label">
-                <strong>SLA deadline</strong><br />
-                @Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-            </div>
-        </div>
-    </div>
-</div>
-
-<h3 class="section-title">Requests</h3>
-<div class="mb-2">
-    <span>Filter:</span>
-    <a asp-page="./Details" asp-route-id="@Model.Batch.Id" class="me-2 @(Model.StatusFilter is null ? "fw-bold" : string.Empty)">All</a>
-    @foreach (var status in Model.AvailableStatuses)
-    {
-        <a asp-page="./Details"
-           asp-route-id="@Model.Batch.Id"
-           asp-route-status="@status"
-           class="me-2 @(string.Equals(Model.StatusFilter, status, StringComparison.OrdinalIgnoreCase) ? "fw-bold" : string.Empty)">
-            @status
-        </a>
-    }
-</div>
-
-<table class="table table-sm table-striped align-middle">
-    <thead>
-        <tr>
-            <th>Request ID</th>
-            <th>Status</th>
-            <th>GPU Pool</th>
-            <th>Created</th>
-            <th>Completed</th>
-            <th>Error</th>
-        </tr>
-    </thead>
-    <tbody>
-    @if (!Model.Requests.Any())
-    {
-        <tr>
-            <td colspan="6" class="text-center">No requests found with this filter.</td>
-        </tr>
-    }
-    else
-    {
-        foreach (var request in Model.Requests)
-        {
-            <tr>
-                <td><code class="monospaced">@request.Id</code></td>
-                <td><status-badge value="@request.Status"></status-badge></td>
-                <td><pool-badge value="@request.GpuPool"></pool-badge></td>
-                <td>@request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                <td>@(request.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</td>
-                <td>@(string.IsNullOrEmpty(request.ErrorMessage) ? "—" : request.ErrorMessage)</td>
-            </tr>
-        }
-    }
-    </tbody>
-</table>
-
-<h3 class="section-title">Interruption / Notes</h3>
-@if (!string.IsNullOrWhiteSpace(Model.Batch.Notes))
+<h2>Interruption / Notes</h2>
+@if (!Model.Batch.InterruptionNotes.Any())
 {
-    <p>@Model.Batch.Notes</p>
+    <p class="text-muted">No interruptions or escalations recorded for this batch.</p>
 }
 else
 {
-    <p class="text-muted">No notes recorded for this batch.</p>
+    <div class="card border-warning mb-4">
+        <div class="card-body">
+            <ul class="mb-0">
+                @foreach (var note in Model.Batch.InterruptionNotes)
+                {
+                    <li>
+                        <span class="badge bg-warning text-dark me-2">Line @note.LineNumber</span>
+                        @note.Message
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+}
+
+<h2>Requests</h2>
+@if (!Model.Batch.Requests.Any())
+{
+    <p class="text-muted">No requests associated with this batch.</p>
+}
+else
+{
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Line</th>
+                <th>Status</th>
+                <th>GPU Pool</th>
+                <th>Created</th>
+                <th>Completed</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var request in Model.Batch.Requests)
+        {
+            var createdLocal = request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            var completedLocal = request.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            <tr>
+                <td>@request.LineNumber</td>
+                <td><status-badge value="@request.Status"></status-badge></td>
+                <td><pool-badge value="@request.GpuPool"></pool-badge></td>
+                <td>@createdLocal</td>
+                <td>@completedLocal</td>
+                <td>
+                    @if (request.WasInterruptedOnSpot)
+                    {
+                        <span class="badge bg-warning text-dark me-1">Spot interrupted</span>
+                    }
+                    @if (request.WasEscalatedToDedicated)
+                    {
+                        <span class="badge bg-info text-dark me-1">Escalated to dedicated</span>
+                    }
+                    @if (!string.IsNullOrEmpty(request.ErrorMessage))
+                    {
+                        <span class="text-danger">@request.ErrorMessage</span>
+                    }
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
 }
 

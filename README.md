@@ -450,6 +450,22 @@ The `/Batches` page provides an operator-friendly view over all batches:
   - Total number of requests in the batch.
   - Link to the detailed batch view.
 
+#### Batch Details View
+
+The `/Batches/Details` page provides a richer view of a single batch:
+
+- Batch summary:
+  - User id, status, GPU pool, creation/started/completed timestamps.
+  - SLA deadline and whether it was met or breached.
+  - Any batch-level error message.
+- Requests summary:
+  - Total, completed, failed, queued, and running counts.
+- Interruption / escalation notes:
+  - Highlighted entries when a request was interrupted on spot capacity.
+  - Notes when a request was requeued to a dedicated GPU to protect the SLA.
+- Request-level table:
+  - One row per request with line number, status, GPU pool, timestamps, and badges indicating interruptions or escalations.
+
 #### Batch Details UX
 
 The Batch Details page provides:

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using BatchPortal.Pages.Batches;
+using BatchPortal.Mapping;
 using Shared;
 using Xunit;
 
@@ -16,14 +16,14 @@ public class BatchDetailsViewModelTests
         var completedAt = createdAt.AddHours(12);
         var batch = BuildBatch(createdAt, completionWindow, completedAt);
 
-        var vm = DetailsModel.MapToViewModel(batch);
+        var vm = BatchDetailsMapper.Map(batch);
 
         Assert.Equal(4, vm.TotalRequests);
-        Assert.Equal(1, vm.QueuedCount);
-        Assert.Equal(1, vm.RunningCount);
-        Assert.Equal(1, vm.CompletedCount);
-        Assert.Equal(1, vm.FailedCount);
-        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.SlaDeadline);
+        Assert.Equal(1, vm.QueuedRequests);
+        Assert.Equal(1, vm.RunningRequests);
+        Assert.Equal(1, vm.CompletedRequests);
+        Assert.Equal(1, vm.FailedRequests);
+        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
         Assert.False(vm.IsSlaBreached);
     }
 
@@ -35,10 +35,10 @@ public class BatchDetailsViewModelTests
         var completedAt = createdAt.AddHours(30);
         var batch = BuildBatch(createdAt, completionWindow, completedAt);
 
-        var vm = DetailsModel.MapToViewModel(batch);
+        var vm = BatchDetailsMapper.Map(batch);
 
         Assert.True(vm.IsSlaBreached);
-        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.SlaDeadline);
+        Assert.Equal((createdAt + completionWindow).UtcDateTime, vm.DeadlineUtc);
     }
 
     private static BatchEntity BuildBatch(DateTimeOffset createdAt, TimeSpan completionWindow, DateTimeOffset? completedAt)
