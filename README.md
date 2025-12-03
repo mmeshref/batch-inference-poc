@@ -54,22 +54,26 @@ Docker Desktop → Settings → Kubernetes → Enable Kubernetes
 #### **kubectl**
 Command-line tool to interact with Kubernetes.
 Install:
+```bash
 brew install kubectl
+```
 
 #### **Helm (Optional but recommended)**
 Some users may want to install Grafana/Prometheus via Helm.
 Install:
+```bash
 brew install helm
+```
 
 ---
 
 ### 4. .NET SDK
 The entire stack is written in **.NET 8**.
 Install:
-brew install –cask dotnet-sdk
-
-Verify:
-dotnet –version
+```bash
+brew install --cask dotnet-sdk
+dotnet --version
+```
 
 ---
 
@@ -77,11 +81,11 @@ dotnet –version
 Used for debugging, schema inspection, manual database checks.
 
 Install:
+```bash
 brew install libpq
 brew link –force libpq
-
-Verify:
 psql –version
+```
 
 ---
 
@@ -115,10 +119,14 @@ Requires:
 GUI or terminal UI for Kubernetes cluster introspection.
 
 Install Lens:
+```bash
 brew install –cask lens
+```
 
+```bash
 Install k9s:
 brew install k9s
+```
 
 ---
 
@@ -126,7 +134,9 @@ brew install k9s
 Recommended for cloning & maintaining the repo.
 
 Install GitHub CLI:
+```bash
 brew install gh
+```
 
 ---
 
