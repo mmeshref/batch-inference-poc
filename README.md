@@ -588,3 +588,51 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Scheduler.
   - Workers.
   - Portal.
+
+### 12. 🌍 Planetary-Scale Architecture (Long-Term)
+This Proof-of-Concept is not designed to operate at planetary scale. Achieving millions of requests per second, multi-region failover, and global-level durability requires substantial architectural evolution beyond the current implementation. The following areas must be re-engineered before the system can approach true large-scale operation:
+
+- Data Layer Scalability
+  -	Entity Framework Core (EF) over a single Postgres instance becomes the bottleneck far before global scale.
+  -	Required upgrades include:
+	  -	Sharding or partitioned storage (e.g., CockroachDB, YugabyteDB, Citus, or Spanner-style architectures).
+	  -	Fully asynchronous, horizontally scalable persistence instead of per-request transactional EF calls.
+	  -	Moving queue operations out of Postgres entirely (e.g., Redis Streams, Kafka, Pub/Sub, or Kinesis).
+	  -	Schema redesign for log-structured, append-only, high-volume ingestion.
+
+- Infrastructure & Compute Scaling
+  -	The system currently assumes a small static GPU worker pool. At planetary scale, you need:
+	  -	Auto-scaling GPU fleets across multiple regions.
+	  -	Heterogeneous hardware support (various GPU SKUs, CPU-only fallbacks, inference accelerators).
+	  -	Multi-cluster orchestration, not a single Kubernetes cluster.
+	  -	Regional failover, rolling workloads across geographies, and global routing.
+
+- Scheduler Re-architecture
+  -	The current scheduler is single-instance and database-bound.
+  -	Planetary scale requires:
+	  -	A distributed scheduler with worker-push or partitioned pull queues.
+	  -	SLA-driven routing at scale (priority, cost-based selection, multi-pool dispatching).
+	  -	Event-driven requeue instead of polling.
+
+- Observability at High Volume
+  -	Prometheus scraping does not work at millions of nodes/pods.
+  -	Planetary scale requires:
+	  -	Metric federation, sharded Prometheus, or a managed time-series backend (Bigtable/Mimir/VictoriaMetrics).
+	  -	Distributed tracing with sampling.
+	  -	High-volume log pipelines (Kafka → ClickHouse / BigQuery).
+
+- API Gateway & Frontend Throughput
+  -	The current gateway is single-node and not fronted by a global load balancer.
+  -	Needed upgrades:
+	  -	Global Anycast routing (Cloudflare, AWS Global Accelerator).
+	  -	Multi-region API mirrors.
+	  -	Stateless gateway backed by distributed cache.
+
+- Reliability Engineering
+  -	Planetary scale demands fault tolerance at every layer:
+	  -	Multi-region redundancy for data, compute, and queueing.
+	  -	Chaos engineering, spot market volatility handling, and automated rescheduling at scale.
+	  -	Blue/green deployments for every microservice, automatic rollback, and continuous health validation.
+
+Summary
+The POC demonstrates the architecture but not the scale mechanics. Reaching planetary throughput requires a fundamental upgrade of storage, compute, scheduling, observability, and global routing. This section is intentionally high-level: full planetary-scale design is a multi-month blueprint, not a POC patch.
