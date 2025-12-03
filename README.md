@@ -33,8 +33,6 @@ Before installing or deploying any part of this system, ensure the following dep
 - macOS (Intel or Apple Silicon)  
 - At least **16GB RAM** recommended (due to k8s + images + monitoring stack).
 
----
-
 ### 2. Core Tools
 
 #### **Docker Desktop**
@@ -47,8 +45,6 @@ Install from: https://www.docker.com/products/docker-desktop/
 
 Make sure Kubernetes is enabled in Docker Desktop:
 Docker Desktop → Settings → Kubernetes → Enable Kubernetes
-
-<hr/>
 
 ### 3. Kubernetes Tooling
 
@@ -66,8 +62,6 @@ Install:
 brew install helm
 ```
 
----
-
 ### 4. .NET SDK
 The entire stack is written in **.NET 8**.
 Install:
@@ -75,8 +69,6 @@ Install:
 brew install --cask dotnet-sdk
 dotnet --version
 ```
-
----
 
 ### 5. Postgres Client Tools
 Used for debugging, schema inspection, manual database checks.
@@ -87,8 +79,6 @@ brew install libpq
 brew link –force libpq
 psql –version
 ```
-
----
 
 ### 6. Kubernetes Monitoring Stack Requirements
 
@@ -112,8 +102,6 @@ Requires:
 - Proper alert rules mounted in `/etc/prometheus/rules`
 - Correct Prometheus → Alertmanager config
 
----
-
 ### 7. Optional (but recommended)
 
 #### **Lens / k9s**
@@ -129,8 +117,6 @@ Install k9s:
 brew install k9s
 ```
 
----
-
 ### 8. Git + GitHub CLI
 Recommended for cloning & maintaining the repo.
 
@@ -139,13 +125,9 @@ Install GitHub CLI:
 brew install gh
 ```
 
----
-
 ### 9. Make (Optional)
 If you want to convert shell scripts to a Makefile.
 Already available on macOS.
-
----
 
 ### ✔️ Summary of Required Tools
 
@@ -173,6 +155,8 @@ dotnet restore
 kubectl get nodes
 ```
 
+---
+
 ## Deployment
 
 All Kubernetes manifests live under `k8s/`. Use the helper script to deploy everything (Postgres, ApiGateway, SchedulerService, spot & dedicated GPU workers, Batch Portal, Prometheus, Grafana, Alertmanager). Or deploy all:
@@ -183,6 +167,7 @@ Example:
 ./scripts/redeploy-all.sh v1
 ```
 
+---
 
 ## Running & Testing
 
@@ -222,9 +207,13 @@ Get batch status:
 curl http://localhost:30080/v1/batches/<BATCH_ID>
 ```
 
+---
+
 ## System Overview
 
 Implements an OpenAI-like batch processing API with JSONL file upload, batch creation, SLA-aware scheduling, simulated spot/dedicated GPU workers, retries/escalations on interruptions, and monitoring. All metadata/results persist in PostgreSQL, and the Batch Portal provides a user-friendly front end over the same API.
+
+---
 
 ## End-to-End Flow
 
@@ -238,6 +227,8 @@ Implements an OpenAI-like batch processing API with JSONL file upload, batch cre
 8. Scheduler retries failed requests and escalates to dedicated workers when SLA risk is detected.
 9. Batch is marked completed once all requests finish (success or failure).
 10. Portal/API expose batch and request details plus outputs.
+
+---
 
 ## Architecture
 
@@ -261,6 +252,7 @@ flowchart TD
     F --> G
 ```
 
+---
 
 ## Components
 
@@ -291,6 +283,8 @@ flowchart TD
 - Grafana provides dashboards.
 - Alertmanager handles alerting (config stubbed for easy extension).
 
+---
+
 ## Development Guide
 
 Run services locally without Kubernetes:
@@ -315,6 +309,8 @@ Use `dotnet watch run` for hot reload during development. Inspect logs in Kubern
 kubectl logs -n batch-inference <pod-name>
 ```
 
+---
+
 ## Troubleshooting
 
 | Issue | Resolution |
@@ -333,8 +329,6 @@ kubectl logs -n batch-inference <pod-name>
 This Proof-of-Concept implements an end-to-end batch processing pipeline (API → DB → Scheduler → GPU workers → storage → monitoring), but several production-grade capabilities are intentionally incomplete or stubbed out.
 
 Below is a consolidated list of what is currently missing and what would be implemented next in a real system.
-
----
 
 ### 1. Dynamic Worker Autoscaling (Backlog-Based)
 
@@ -362,8 +356,6 @@ Below is a consolidated list of what is currently missing and what would be impl
     - `deployment/gpu-worker-spot`
     - `deployment/gpu-worker-dedicated`
 
----
-
 ### 2. Robust Error Handling, Retries & Dead-Letter Queue
 
 **Missing:**
@@ -382,8 +374,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Requeue a subset of DLQ items.
   - Download inputs/outputs for debugging.
 
----
-
 ### 3. Authentication, Authorization & Multi-Tenancy
 
 **Missing:**
@@ -401,8 +391,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Batches
   - Requests
 - Add an audit log for key actions (create batch, cancel batch, download result).
-
----
 
 ### 4. Cloud Object Storage Integration
 
@@ -423,8 +411,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Pre-signed download URLs for batch output files.
 - Add lifecycle rules (e.g. delete files after N days or after batch expiry).
 
----
-
 ### 5. Real GPU Inference Engine
 
 **Current state:**
@@ -444,8 +430,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Perform tokenization and batching.
   - Report performance metrics (tokens/sec, latency, GPU utilization).
 - Integrate with a model runtime (vLLM / TGI / Triton / custom).
-
----
 
 ### 6. SLA Enforcement & Observability
 
@@ -471,8 +455,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Persistent SLA violations.
   - Abnormal spot interruption rates.
 
----
-
 ### 7. Queue Fairness, Rate Limiting & Isolation
 
 **Missing:**
@@ -487,8 +469,6 @@ Below is a consolidated list of what is currently missing and what would be impl
 - Enforce per-user limits on:
   - Concurrent batches.
   - Total in-flight requests.
-
----
 
 ### 8. Portal UX & Developer Experience
 
@@ -513,8 +493,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - “System health” summary.
   - Links to alerting and dashboards.
 
----
-
 ### 9. End-to-End, Load & Chaos Testing
 
 **Missing:**
@@ -538,8 +516,6 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Random pod deletions.
   - Simulated network partitions.
 
----
-
 ### 10. Security & Hardening
 
 **Missing:**
@@ -554,8 +530,6 @@ Below is a consolidated list of what is currently missing and what would be impl
 - Integrate with a secret manager (Vault / SOPS / cloud-native).
 - Run containers as non-root with minimal permissions.
 - Add NetworkPolicies to restrict pod-to-pod communication.
-
----
 
 ### 11. CI/CD & Environment Promotion
 
