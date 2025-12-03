@@ -123,8 +123,8 @@ Install Lens:
 brew install –cask lens
 ```
 
-```bash
 Install k9s:
+```bash
 brew install k9s
 ```
 
