@@ -175,11 +175,14 @@ kubectl get nodes
 
 ## Deployment
 
-All Kubernetes manifests live under `k8s/`. Use the helper script to deploy everything (Postgres, ApiGateway, SchedulerService, spot & dedicated GPU workers, Batch Portal, Prometheus, Grafana, Alertmanager):
+All Kubernetes manifests live under `k8s/`. Use the helper script to deploy everything (Postgres, ApiGateway, SchedulerService, spot & dedicated GPU workers, Batch Portal, Prometheus, Grafana, Alertmanager). Or deploy all:
 
 ```bash
-./scripts/deploy-all.sh
+./scripts/redeploy-all.sh <optional version>
+Example:
+./scripts/redeploy-all.sh v1
 ```
+
 
 ## Running & Testing
 
@@ -320,6 +323,7 @@ kubectl logs -n batch-inference <pod-name>
 | API unreachable at `localhost:30080` | Ensure NodePort service exists: `kubectl get svc -n batch-inference`. |
 | Prometheus missing rules | Confirm `/etc/prometheus/rules` volume is mounted and `k8s/monitoring/alert-rules.yaml` applied. |
 | “Simulated spot interruption” floods logs | Expected behavior; confirm Scheduler requeues/escalates to dedicated workers. |
+| Redeployed pods are not updated | Make sure to increase the version when running the redeployment scripts |
 
 ---
 
