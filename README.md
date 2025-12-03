@@ -321,6 +321,7 @@ kubectl logs -n batch-inference <pod-name>
 | Prometheus missing rules | Confirm `/etc/prometheus/rules` volume is mounted and `k8s/monitoring/alert-rules.yaml` applied. |
 | “Simulated spot interruption” floods logs | Expected behavior; confirm Scheduler requeues/escalates to dedicated workers. |
 
+---
 
 <a name="missingfeatures"></a>
 ## 🚧 Missing Features & Future Improvements
