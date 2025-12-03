@@ -431,6 +431,25 @@ The portal home page (`/`) acts as a lightweight operations dashboard:
   - Database reachability check (simple read).
   - API gateway health flag (currently simple / mockable check, extendable to real health endpoints).
 
+#### Batches List View
+
+The `/Batches` page provides an operator-friendly view over all batches:
+
+- Filtering:
+  - By batch status (Queued / Running / Completed / Failed).
+  - By user id (simple free-text match).
+
+- Sorting:
+  - By creation time (newest or oldest first).
+
+- Columns:
+  - Created timestamp.
+  - User id.
+  - Status and GPU pool badges.
+  - SLA state (Met / Breached / In progress).
+  - Total number of requests in the batch.
+  - Link to the detailed batch view.
+
 #### Batch Details UX
 
 The Batch Details page provides:

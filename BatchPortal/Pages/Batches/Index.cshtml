@@ -1,92 +1,87 @@
 @page
 @model BatchPortal.Pages.Batches.IndexModel
-@using Microsoft.AspNetCore.Mvc.TagHelpers
-
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-        <h1 class="mb-0">Batches</h1>
-        <p class="text-muted mb-0">Overview of your recent batch jobs</p>
-    </div>
-</div>
-
 @{
-    var totalBatches = Model.Batches.Count;
-    var completedBatches = Model.Batches.Count(b => b.Status.Equals("completed", StringComparison.OrdinalIgnoreCase));
-    var failedBatches = Model.Batches.Count(b => b.Status.Equals("failed", StringComparison.OrdinalIgnoreCase));
+    ViewData["Title"] = "Batches";
 }
 
-<div class="row mb-4">
-    <div class="col-md-4 mb-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">Total Batches</h5>
-                <span class="badge bg-primary fs-5">@totalBatches</span>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">Completed</h5>
-                <span class="badge bg-success fs-5">@completedBatches</span>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4 mb-3">
-        <div class="card shadow-sm">
-            <div class="card-body">
-                <h5 class="card-title">Failed</h5>
-                <span class="badge bg-danger fs-5">@failedBatches</span>
-            </div>
-        </div>
-    </div>
-</div>
+<h1>Batches</h1>
 
-<table class="table table-striped align-middle">
-    <thead>
-        <tr>
-            <th>Id</th>
-            <th>User</th>
-            <th>Status</th>
-            <th>GPU Pool</th>
-            <th>Total Requests</th>
-            <th>Created</th>
-            <th>Age</th>
-            <th>Completed</th>
-        </tr>
-    </thead>
-    <tbody>
-        @if (!Model.Batches.Any())
-        {
+<form method="get" class="row g-2 mb-3">
+    <div class="col-md-3">
+        <label class="form-label">Status</label>
+        <select name="Status" class="form-select">
+            <option value="" selected="@(string.IsNullOrEmpty(Model.Status))">All</option>
+            <option value="Queued" selected="@(Model.Status == "Queued")">Queued</option>
+            <option value="Running" selected="@(Model.Status == "Running")">Running</option>
+            <option value="Completed" selected="@(Model.Status == "Completed")">Completed</option>
+            <option value="Failed" selected="@(Model.Status == "Failed")">Failed</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">User</label>
+        <input name="UserId" class="form-control" value="@Model.UserId" />
+    </div>
+    <div class="col-md-3">
+        <label class="form-label">Sort</label>
+        <select name="Sort" class="form-select">
+            <option value="created_desc" selected="@(string.IsNullOrEmpty(Model.Sort) || Model.Sort == "created_desc")">Created (newest first)</option>
+            <option value="created_asc" selected="@(Model.Sort == "created_asc")">Created (oldest first)</option>
+        </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button type="submit" class="btn btn-primary me-2">Apply</button>
+        <a asp-page="./Index" class="btn btn-outline-secondary">Reset</a>
+    </div>
+</form>
+
+@if (!Model.Batches.Any())
+{
+    <p class="text-muted">No batches found.</p>
+}
+else
+{
+    <table class="table table-sm table-striped align-middle">
+        <thead>
             <tr>
-                <td colspan="7" class="text-center">No batches found.</td>
+                <th>Created</th>
+                <th>User</th>
+                <th>Status</th>
+                <th>GPU Pool</th>
+                <th>SLA</th>
+                <th>Total Requests</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var batch in Model.Batches)
+        {
+            var createdLocal = batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            <tr>
+                <td>@createdLocal</td>
+                <td>@batch.UserId</td>
+                <td><status-badge value="@batch.Status"></status-badge></td>
+                <td><pool-badge value="@batch.GpuPool"></pool-badge></td>
+                <td>
+                    @if (!batch.CompletedAt.HasValue)
+                    {
+                        <span class="badge bg-warning">In progress</span>
+                    }
+                    else if (batch.IsSlaBreached)
+                    {
+                        <span class="badge bg-danger">Breached</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">Met</span>
+                    }
+                </td>
+                <td>@batch.TotalRequests</td>
+                <td>
+                    <a asp-page="/Batches/Details" asp-route-id="@batch.Id" class="btn btn-sm btn-outline-primary">Details</a>
+                </td>
             </tr>
         }
-        else
-        {
-            foreach (var batch in Model.Batches)
-            {
-                <tr>
-                    <td>
-                        <a asp-page="/Batches/Details" asp-route-id="@batch.Id">
-                                <code class="monospaced">@batch.Id</code>
-                        </a>
-                    </td>
-                    <td>@batch.UserId</td>
-                        <td><status-badge value="@batch.Status"></status-badge></td>
-                        <td><pool-badge value="@batch.GpuPool"></pool-badge></td>
-                    <td>@batch.TotalRequests</td>
-                        <td>@batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
-                        <td>@TimeFormatting.ToRelative(batch.CreatedAt)</td>
-                        <td>
-                            @{
-                                var completed = batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-";
-                            }
-                            @completed
-                        </td>
-                </tr>
-            }
-        }
-    </tbody>
-</table>
+        </tbody>
+    </table>
+}
 
