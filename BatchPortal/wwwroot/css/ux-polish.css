@@ -20,6 +20,15 @@
     background-color: #fd7e14;
 }
 
+.timeline {
+    align-items: center;
+}
+
+.timeline-line {
+    border-top: 2px dashed #ced4da;
+    margin: 0 10px;
+}
+
 code.monospaced {
     font-family: ui-monospace, SFMono-Regular, SF Mono, Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 0.85rem;

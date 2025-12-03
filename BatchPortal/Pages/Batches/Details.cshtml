@@ -57,8 +57,8 @@ else
                             }
                         </dd>
 
-                        <dt class="col-sm-4">Error</dt>
-                        <dd class="col-sm-8">@Model.Batch.ErrorMessage ?? "-"</dd>
+                        <dt class="col-sm-4">Notes</dt>
+                        <dd class="col-sm-8">@Model.Batch.Notes ?? "-"</dd>
                     </dl>
                 </div>
             </div>
@@ -89,7 +89,110 @@ else
         </div>
     </div>
 
-    <h2 class="section-title">Requests (@Model.Requests.Count)</h2>
+    <h2 class="section-title">Batch Overview</h2>
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div>Status</div>
+                        <status-badge value="@Model.Batch.Status"></status-badge>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div>GPU Pool</div>
+                        <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between flex-wrap gap-3">
+                        <div>
+                            <div class="text-muted small">Created</div>
+                            <div>@Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                            <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.CreatedAt)</div>
+                        </div>
+                        <div>
+                            <div class="text-muted small">Started</div>
+                            <div>@(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</div>
+                            @if (Model.Batch.StartedAt.HasValue)
+                            {
+                                <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.StartedAt)</div>
+                            }
+                        </div>
+                        <div>
+                            <div class="text-muted small">Completed</div>
+                            <div>@(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</div>
+                            @if (Model.Batch.CompletedAt.HasValue)
+                            {
+                                <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.CompletedAt)</div>
+                            }
+                        </div>
+                        <div>
+                            <div class="text-muted small">SLA Deadline</div>
+                            <div>@Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                            <div class="text-muted small">
+                                @(Model.Batch.IsSlaBreached ? "Breached" : "On track")
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Timeline</h2>
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between text-center flex-wrap timeline">
+                <div class="flex-fill">
+                    <div class="text-muted small">Created</div>
+                    <div>@Model.Batch.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
+                </div>
+                <div class="timeline-line flex-fill"></div>
+                <div class="flex-fill">
+                    <div class="text-muted small">Started</div>
+                    <div>@(Model.Batch.StartedAt?.ToLocalTime().ToString("HH:mm") ?? "-")</div>
+                </div>
+                <div class="timeline-line flex-fill"></div>
+                <div class="flex-fill">
+                    <div class="text-muted small">Completed</div>
+                    <div>@(Model.Batch.CompletedAt?.ToLocalTime().ToString("HH:mm") ?? "-")</div>
+                </div>
+                <div class="timeline-line flex-fill"></div>
+                <div class="flex-fill">
+                    <div class="text-muted small">SLA Deadline</div>
+                    <div>@Model.Batch.SlaDeadline.ToLocalTime().ToString("HH:mm")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h2 class="section-title">Requests (@Model.Batch.TotalRequests)</h2>
+
+    <form method="get" class="row g-2 mb-3">
+        <input type="hidden" name="id" value="@Model.Batch.Id" />
+        <div class="col-md-4">
+            <select class="form-select" name="status">
+                <option value="">All statuses</option>
+                @foreach (var st in Model.AvailableStatuses)
+                {
+                    <option value="@st" selected="@(string.Equals(Model.StatusFilter, st, StringComparison.OrdinalIgnoreCase))">@st</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
+        </div>
+        @if (!string.IsNullOrEmpty(Model.StatusFilter))
+        {
+            <div class="col-md-2">
+                <a class="btn btn-link" asp-page="./Details" asp-route-id="@Model.Batch.Id">Clear</a>
+            </div>
+        }
+    </form>
 
     <table class="table table-sm table-striped align-middle">
         <thead>
