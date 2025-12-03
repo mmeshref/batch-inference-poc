@@ -23,7 +23,7 @@ MVP for an OpenAI-style batch inference system: JSONL file upload, batch creatio
 - [Development Guide](#development-guide)
 - [Troubleshooting](#troubleshooting)
 
-## 🔧 Prerequisites
+🔧## Prerequisites
 
 Before installing or deploying any part of this system, ensure the following dependencies are installed on your machine:
 
