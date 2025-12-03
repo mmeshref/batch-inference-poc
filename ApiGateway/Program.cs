@@ -103,6 +103,41 @@ app.MapPost("/v1/files", async (
     return Results.Ok(new { id = fileEntity.Id });
 });
 
+app.MapGet("/v1/files/{id:guid}/raw", async (
+    Guid id,
+    HttpRequest request,
+    BatchDbContext dbContext,
+    IConfiguration configuration,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(request, out var userId, out var errorResult))
+    {
+        return errorResult!;
+    }
+
+    var file = await dbContext.Files
+        .AsNoTracking()
+        .SingleOrDefaultAsync(f => f.Id == id && f.UserId == userId, cancellationToken);
+
+    if (file is null)
+    {
+        return Results.NotFound();
+    }
+
+    var basePath = configuration["Storage:BasePath"] ?? "/tmp/dwb-files";
+    var fullPath = Path.IsPathRooted(file.StoragePath)
+        ? file.StoragePath
+        : Path.Combine(basePath, file.StoragePath);
+
+    if (!System.IO.File.Exists(fullPath))
+    {
+        return Results.NotFound();
+    }
+
+    const string contentType = "application/octet-stream";
+    return Results.File(fullPath, contentType, file.Filename);
+});
+
 app.MapPost("/v1/batches", async (
     HttpRequest request,
     IBatchService batchService,

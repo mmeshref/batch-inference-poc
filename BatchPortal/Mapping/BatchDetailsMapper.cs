@@ -30,7 +30,8 @@ internal static class BatchDetailsMapper
             CompletedRequests = requests.Count(r => r.Status == RequestStatuses.Completed),
             FailedRequests = requests.Count(r => r.Status == RequestStatuses.Failed),
             QueuedRequests = requests.Count(r => r.Status == RequestStatuses.Queued),
-            RunningRequests = requests.Count(r => r.Status == RequestStatuses.Running)
+            RunningRequests = requests.Count(r => r.Status == RequestStatuses.Running),
+            OutputFileId = batch.OutputFileId
         };
 
         var requestItems = requests

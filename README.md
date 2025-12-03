@@ -465,6 +465,9 @@ The `/Batches/Details` page provides a richer view of a single batch:
   - Notes when a request was requeued to a dedicated GPU to protect the SLA.
 - Request-level table:
   - One row per request with line number, status, GPU pool, timestamps, and badges indicating interruptions or escalations.
+- Output file UX:
+  - Download the full output file when available.
+  - Preview the first few lines inline to validate the contents quickly.
 
 #### Batch Details UX
 

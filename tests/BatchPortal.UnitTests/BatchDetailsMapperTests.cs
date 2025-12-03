@@ -52,6 +52,7 @@ public class BatchDetailsMapperTests
         Assert.Equal(1, result.FailedRequests);
         Assert.Equal(1, result.QueuedRequests);
         Assert.Equal(1, result.RunningRequests);
+        Assert.Equal(batch.OutputFileId, result.OutputFileId);
     }
 
     [Fact]

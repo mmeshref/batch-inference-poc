@@ -20,6 +20,10 @@ public sealed class BatchDetailsViewModel
     public int FailedRequests { get; set; }
     public int QueuedRequests { get; set; }
     public int RunningRequests { get; set; }
+    public Guid? OutputFileId { get; set; }
+    public bool HasOutputFile => OutputFileId.HasValue;
+    public IReadOnlyList<string> OutputPreviewLines { get; set; } = Array.Empty<string>();
+    public bool OutputPreviewTruncated { get; set; }
     public IReadOnlyList<RequestItem> Requests { get; set; } = Array.Empty<RequestItem>();
     public IReadOnlyList<InterruptionNote> InterruptionNotes { get; set; } = Array.Empty<InterruptionNote>();
 
