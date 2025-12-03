@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BatchPortal.Models;
+using Humanizer;
+using Humanizer.Localisation;
 using Shared;
 
 namespace BatchPortal.Mapping;
@@ -40,7 +42,10 @@ internal static class BatchDetailsMapper
             {
                 var interrupted = !string.IsNullOrEmpty(r.ErrorMessage) &&
                                   r.ErrorMessage.Contains("Simulated spot interruption", StringComparison.OrdinalIgnoreCase);
-                var escalated = interrupted && string.Equals(r.GpuPool, GpuPools.Dedicated, StringComparison.OrdinalIgnoreCase);
+                var wasEscalated = string.Equals(r.GpuPool, GpuPools.Dedicated, StringComparison.OrdinalIgnoreCase) && interrupted;
+                var durationDisplay = BuildDurationDisplay(r.StartedAt, r.CompletedAt);
+                var history = BuildGpuPoolHistory(r, wasEscalated);
+                var retryCount = wasEscalated || interrupted ? 1 : 0;
 
                 return new BatchDetailsViewModel.RequestItem
                 {
@@ -52,38 +57,84 @@ internal static class BatchDetailsMapper
                     StartedAt = r.StartedAt,
                     CompletedAt = r.CompletedAt,
                     ErrorMessage = r.ErrorMessage,
-                    WasInterruptedOnSpot = interrupted,
-                    WasEscalatedToDedicated = escalated
+                    DurationDisplay = durationDisplay,
+                    RetryCount = retryCount,
+                    WasEscalated = wasEscalated,
+                    InputPayload = r.InputPayload,
+                    OutputPayload = r.OutputPayload,
+                    Notes = r.ErrorMessage,
+                    GpuPoolHistory = history
                 };
             })
             .ToList();
 
-        var notes = new List<BatchDetailsViewModel.InterruptionNote>();
-        foreach (var request in requestItems)
-        {
-            if (request.WasInterruptedOnSpot)
-            {
-                notes.Add(new BatchDetailsViewModel.InterruptionNote
-                {
-                    LineNumber = request.LineNumber,
-                    Message = $"Request line {request.LineNumber} was interrupted on spot capacity."
-                });
-            }
-
-            if (request.WasEscalatedToDedicated)
-            {
-                notes.Add(new BatchDetailsViewModel.InterruptionNote
-                {
-                    LineNumber = request.LineNumber,
-                    Message = $"Request line {request.LineNumber} was requeued to dedicated GPU to protect the SLA."
-                });
-            }
-        }
+        var notes = BuildInterruptionNotes(requestItems);
 
         vm.Requests = requestItems;
         vm.InterruptionNotes = notes;
 
         return vm;
+    }
+
+    private static string BuildDurationDisplay(DateTimeOffset? started, DateTimeOffset? completed)
+    {
+        if (!started.HasValue || !completed.HasValue || completed <= started)
+        {
+            return "-";
+        }
+
+        var duration = completed.Value - started.Value;
+        return duration.Humanize(precision: 2, minUnit: TimeUnit.Second);
+    }
+
+    private static IReadOnlyList<BatchDetailsViewModel.GpuPoolHistoryEntry> BuildGpuPoolHistory(RequestEntity request, bool wasEscalated)
+    {
+        var history = new List<BatchDetailsViewModel.GpuPoolHistoryEntry>();
+        if (wasEscalated)
+        {
+            history.Add(new BatchDetailsViewModel.GpuPoolHistoryEntry
+            {
+                Pool = GpuPools.Spot,
+                OccurredAt = request.CreatedAt,
+                Description = "Initial spot allocation"
+            });
+        }
+
+        history.Add(new BatchDetailsViewModel.GpuPoolHistoryEntry
+        {
+            Pool = request.GpuPool,
+            OccurredAt = request.StartedAt ?? request.CreatedAt,
+            Description = wasEscalated ? "Escalated to dedicated pool" : "Active pool"
+        });
+
+        return history;
+    }
+
+    private static IReadOnlyList<BatchDetailsViewModel.InterruptionNote> BuildInterruptionNotes(IEnumerable<BatchDetailsViewModel.RequestItem> requests)
+    {
+        var notes = new List<BatchDetailsViewModel.InterruptionNote>();
+        foreach (var request in requests)
+        {
+            if (!string.IsNullOrEmpty(request.Notes))
+            {
+                notes.Add(new BatchDetailsViewModel.InterruptionNote
+                {
+                    LineNumber = request.LineNumber,
+                    Message = request.Notes!
+                });
+            }
+
+            if (request.WasEscalated)
+            {
+                notes.Add(new BatchDetailsViewModel.InterruptionNote
+                {
+                    LineNumber = request.LineNumber,
+                    Message = $"Request line {request.LineNumber} escalated to dedicated GPUs."
+                });
+            }
+        }
+
+        return notes;
     }
 }
 

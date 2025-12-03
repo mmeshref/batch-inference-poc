@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace BatchPortal.Models;
 
@@ -37,14 +38,26 @@ public sealed class BatchDetailsViewModel
         public DateTimeOffset? StartedAt { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }
         public string? ErrorMessage { get; set; }
-        public bool WasInterruptedOnSpot { get; set; }
-        public bool WasEscalatedToDedicated { get; set; }
+        public string DurationDisplay { get; set; } = "-";
+        public int RetryCount { get; set; }
+        public bool WasEscalated { get; set; }
+        public string InputPayload { get; set; } = string.Empty;
+        public string? OutputPayload { get; set; }
+        public string? Notes { get; set; }
+        public IReadOnlyList<GpuPoolHistoryEntry> GpuPoolHistory { get; set; } = Array.Empty<GpuPoolHistoryEntry>();
     }
 
     public sealed class InterruptionNote
     {
         public int LineNumber { get; set; }
         public string Message { get; set; } = string.Empty;
+    }
+
+    public sealed class GpuPoolHistoryEntry
+    {
+        public string Pool { get; set; } = string.Empty;
+        public DateTimeOffset? OccurredAt { get; set; }
+        public string Description { get; set; } = string.Empty;
     }
 }
 

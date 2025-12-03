@@ -62,12 +62,11 @@ else
         <tbody>
         @foreach (var b in Model.Dashboard.RecentBatches)
         {
-            var createdLocal = b.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             <tr>
-                <td>@createdLocal</td>
+                <td>@b.CreatedAt.Humanize()</td>
                 <td>@b.UserId</td>
-                <td><status-badge value="@b.Status"></status-badge></td>
-                <td><pool-badge value="@b.GpuPool"></pool-badge></td>
+                <td>@await Html.PartialAsync("Components/Ui/StatusBadge", b.Status)</td>
+                <td>@await Html.PartialAsync("Components/Ui/GpuPoolBadge", b.GpuPool)</td>
                 <td>
                     @if (!b.CompletedAt.HasValue)
                     {

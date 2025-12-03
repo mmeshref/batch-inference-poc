@@ -92,12 +92,11 @@ else
         <tbody>
         @foreach (var batch in Model.Batches)
         {
-            var createdLocal = batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
             <tr>
-                <td>@createdLocal</td>
+                <td>@batch.CreatedAt.Humanize()</td>
                 <td>@batch.UserId</td>
-                <td><status-badge value="@batch.Status"></status-badge></td>
-                <td><pool-badge value="@batch.GpuPool"></pool-badge></td>
+                <td>@await Html.PartialAsync("Components/Ui/StatusBadge", batch.Status)</td>
+                <td>@await Html.PartialAsync("Components/Ui/GpuPoolBadge", batch.GpuPool)</td>
                 <td>
                     @batch.CompletedRequests / @batch.TotalRequests
                     @if (batch.FailedRequests > 0)
@@ -105,7 +104,7 @@ else
                         <span class="badge bg-danger ms-1">@batch.FailedRequests failed</span>
                     }
                 </td>
-                <td>@(batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))</td>
+                <td>@(batch.CompletedAt?.Humanize() ?? "—")</td>
                 <td>
                     <a asp-page="/Batches/Details" asp-route-id="@batch.Id" class="btn btn-sm btn-outline-primary">Details</a>
                 </td>

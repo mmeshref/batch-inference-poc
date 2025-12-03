@@ -1,0 +1,13 @@
+@model string?
+@using BatchPortal.Shared
+@{
+    var config = BadgeStyles.ForGpuPool(Model);
+}
+<span class="@config.CssClass" title="@config.Tooltip">
+    @if (!string.IsNullOrWhiteSpace(config.Icon))
+    {
+        <span class="me-1">@config.Icon</span>
+    }
+    @config.Label
+</span>
+

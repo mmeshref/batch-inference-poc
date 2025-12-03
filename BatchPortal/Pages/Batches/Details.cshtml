@@ -8,27 +8,36 @@
 
 <div class="row mb-4">
     <div class="col-md-6 mb-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title">Batch Summary</h5>
                 <p><strong>User:</strong> @Model.Batch.UserId</p>
                 <p>
                     <strong>Status:</strong>
-                    <status-badge value="@Model.Batch.Status"></status-badge>
+                    @await Html.PartialAsync("Components/Ui/StatusBadge", Model.Batch.Status)
                 </p>
                 <p>
                     <strong>GPU Pool:</strong>
-                    <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
+                    @await Html.PartialAsync("Components/Ui/GpuPoolBadge", Model.Batch.GpuPool)
                 </p>
-                <p><strong>Created:</strong> @Model.Batch.CreatedAt.ToLocalTime()</p>
-                @if (Model.Batch.StartedAt.HasValue)
-                {
-                    <p><strong>Started:</strong> @Model.Batch.StartedAt.Value.ToLocalTime()</p>
-                }
-                @if (Model.Batch.CompletedAt.HasValue)
-                {
-                    <p><strong>Completed:</strong> @Model.Batch.CompletedAt.Value.ToLocalTime()</p>
-                }
+                <p>
+                    <strong>Created:</strong> @Model.Batch.CreatedAt.Humanize()
+                    <small class="text-muted ms-1">(@Model.Batch.CreatedAt.ToLocalTime())</small>
+                </p>
+                <p>
+                    <strong>Started:</strong> @(Model.Batch.StartedAt?.Humanize() ?? "—")
+                    @if (Model.Batch.StartedAt.HasValue)
+                    {
+                        <small class="text-muted ms-1">(@Model.Batch.StartedAt.Value.ToLocalTime())</small>
+                    }
+                </p>
+                <p>
+                    <strong>Completed:</strong> @(Model.Batch.CompletedAt?.Humanize() ?? "—")
+                    @if (Model.Batch.CompletedAt.HasValue)
+                    {
+                        <small class="text-muted ms-1">(@Model.Batch.CompletedAt.Value.ToLocalTime())</small>
+                    }
+                </p>
                 <p><strong>Completion window:</strong> @Model.Batch.CompletionWindow</p>
                 <p>
                     <strong>SLA Deadline:</strong> @Model.Batch.DeadlineUtc.ToLocalTime()
@@ -53,7 +62,7 @@
         </div>
     </div>
     <div class="col-md-6 mb-3">
-        <div class="card">
+        <div class="card h-100">
             <div class="card-body">
                 <h5 class="card-title">Requests Summary</h5>
                 <ul class="list-unstyled mb-0">
@@ -95,7 +104,7 @@ else
 @foreach (var line in Model.Batch.OutputPreviewLines)
 {
 @line
-@: 
+@:
 }
                 </pre>
                 @if (Model.Batch.OutputPreviewTruncated)
@@ -142,45 +151,90 @@ else
 }
 else
 {
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>Line</th>
-                <th>Status</th>
-                <th>GPU Pool</th>
-                <th>Created</th>
-                <th>Completed</th>
-                <th>Notes</th>
-            </tr>
-        </thead>
-        <tbody>
-        @foreach (var request in Model.Batch.Requests)
-        {
-            var createdLocal = request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-            var completedLocal = request.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-            <tr>
-                <td>@request.LineNumber</td>
-                <td><status-badge value="@request.Status"></status-badge></td>
-                <td><pool-badge value="@request.GpuPool"></pool-badge></td>
-                <td>@createdLocal</td>
-                <td>@completedLocal</td>
-                <td>
-                    @if (request.WasInterruptedOnSpot)
-                    {
-                        <span class="badge bg-warning text-dark me-1">Spot interrupted</span>
-                    }
-                    @if (request.WasEscalatedToDedicated)
-                    {
-                        <span class="badge bg-info text-dark me-1">Escalated to dedicated</span>
-                    }
-                    @if (!string.IsNullOrEmpty(request.ErrorMessage))
-                    {
-                        <span class="text-danger">@request.ErrorMessage</span>
-                    }
-                </td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table id="request-table" class="table table-sm table-striped align-middle">
+            <thead>
+                <tr>
+                    <th>Line</th>
+                    <th>Status</th>
+                    <th>Duration</th>
+                    <th>GPU Pool</th>
+                    <th>Retry Count</th>
+                    <th>Completed</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var request in Model.Batch.Requests)
+            {
+                var collapseId = $"req-{request.Id}";
+                <tr>
+                    <td class="text-monospace">@request.LineNumber</td>
+                    <td>@await Html.PartialAsync("Components/Ui/StatusBadge", request.Status)</td>
+                    <td>@request.DurationDisplay</td>
+                    <td>
+                        @await Html.PartialAsync("Components/Ui/GpuPoolBadge", request.GpuPool)
+                        @if (request.WasEscalated)
+                        {
+                            <span class="badge bg-warning text-dark ms-1">Escalated</span>
+                        }
+                    </td>
+                    <td>@request.RetryCount</td>
+                    <td>@(request.CompletedAt?.Humanize() ?? "—")</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
+                            Details
+                        </button>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="7" class="p-0 border-0">
+                        <div id="@collapseId" class="collapse" data-bs-parent="#request-table">
+                            <div class="card card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Input</h6>
+                                    <pre class="bg-light p-2">@(!string.IsNullOrWhiteSpace(request.InputPayload) ? request.InputPayload : "-")</pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Output</h6>
+                                    <pre class="bg-light p-2">@(!string.IsNullOrWhiteSpace(request.OutputPayload) ? request.OutputPayload : "-")</pre>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Notes</h6>
+                                    <p class="mb-1">@(!string.IsNullOrWhiteSpace(request.Notes) ? request.Notes : "—")</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold">Escalation History</h6>
+                                    @if (!request.GpuPoolHistory.Any())
+                                    {
+                                        <p class="text-muted mb-0">No history recorded.</p>
+                                    }
+                                    else
+                                    {
+                                        <ul class="mb-0">
+                                            @foreach (var history in request.GpuPoolHistory)
+                                            {
+                                                <li>
+                                                    <span class="text-monospace">@history.Pool</span> – @history.Description
+                                                    @if (history.OccurredAt.HasValue)
+                                                    {
+                                                        <span class="text-muted">(@history.OccurredAt.Value.Humanize())</span>
+                                                    }
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
 }
 

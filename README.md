@@ -464,6 +464,16 @@ The `Batches` page is designed to behave like a small operations console:
 
 Each batch row shows status and GPU pool with badges, plus basic request counts and failures, so you can quickly spot hot or unhealthy workloads.
 
+##### Request details UX enhancements
+
+The Batch Details page now mirrors an operations console:
+
+- GPU pool badges with icons clarify whether work ran on spot (⚡) or dedicated (🔒) capacity, and show escalation badges when a request was requeued.
+- Status badges use consistent color coding (Queued, Running, Completed, Failed, Escalated) across all lists, including the home dashboard.
+- Each request row includes duration and retry count columns plus an expandable pane that surfaces the raw input/output payloads, notes, and escalation history.
+- Collapsible request details also highlight interruption reasons and humanize every timestamp so operators can immediately understand recency.
+- Duration strings and timestamps rely on Humanizer, giving friendly “10 minutes ago” style descriptions that are easier to scan in incident windows.
+
 #### Batch Details View
 
 The `/Batches/Details` page provides a richer view of a single batch:

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BatchPortal.Mapping;
 using Shared;
 using Xunit;
@@ -54,6 +55,46 @@ public class BatchDetailsViewModelTests
 
         Assert.True(vm.HasOutputFile);
         Assert.Equal(batch.OutputFileId, vm.OutputFileId);
+    }
+
+    [Fact]
+    public void MapToViewModel_RequestItems_ShouldSetDurationRetryAndHistory()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var completionWindow = TimeSpan.FromHours(24);
+        var batch = BuildBatch(createdAt, completionWindow, createdAt.AddHours(2));
+        var request = batch.Requests.First(r => r.Status == RequestStatuses.Completed);
+        request.StartedAt = createdAt.AddMinutes(5);
+        request.CompletedAt = createdAt.AddMinutes(15);
+        request.ErrorMessage = "Simulated spot interruption – retrying on dedicated";
+        request.GpuPool = GpuPools.Dedicated;
+
+        var vm = BatchDetailsMapper.Map(batch);
+        var completedRequest = vm.Requests.First(r => r.Status == RequestStatuses.Completed);
+
+        Assert.Equal("10 minutes", completedRequest.DurationDisplay);
+        Assert.Equal(1, completedRequest.RetryCount);
+        Assert.True(completedRequest.WasEscalated);
+        Assert.Equal(request.InputPayload, completedRequest.InputPayload);
+        Assert.Equal(request.OutputPayload, completedRequest.OutputPayload);
+        Assert.NotEmpty(completedRequest.GpuPoolHistory);
+        Assert.Contains(completedRequest.GpuPoolHistory, h => h.Pool == GpuPools.Spot);
+        Assert.Contains(vm.InterruptionNotes, note => note.LineNumber == completedRequest.LineNumber);
+    }
+
+    [Fact]
+    public void MapToViewModel_RequestWithoutCompletion_ShouldShowPlaceholderDuration()
+    {
+        var createdAt = DateTimeOffset.UtcNow;
+        var batch = BuildBatch(createdAt, TimeSpan.FromHours(1), null);
+        var pendingRequest = batch.Requests.First(r => r.Status == RequestStatuses.Queued);
+
+        var vm = BatchDetailsMapper.Map(batch);
+        var mapped = vm.Requests.First(r => r.LineNumber == pendingRequest.LineNumber);
+
+        Assert.Equal("-", mapped.DurationDisplay);
+        Assert.Equal(0, mapped.RetryCount);
+        Assert.False(mapped.WasEscalated);
     }
 
     private static BatchEntity BuildBatch(DateTimeOffset createdAt, TimeSpan completionWindow, DateTimeOffset? completedAt)
