@@ -8,18 +8,18 @@ namespace Shared.Tests;
 public class RequestStatusTests
 {
     [Fact]
-    public void RequestStatus_Should_Expose_All_Known_States()
+    public void RequestStatuses_Should_Expose_All_Known_States()
     {
-        var statuses = Enum.GetValues<RequestStatus>();
-
-        statuses.Should().Contain(new[]
+        var statuses = new[]
         {
-            RequestStatus.Queued,
-            RequestStatus.Running,
-            RequestStatus.Completed,
-            RequestStatus.Failed,
-            RequestStatus.DeadLettered
-        });
+            RequestStatuses.Queued,
+            RequestStatuses.Running,
+            RequestStatuses.Completed,
+            RequestStatuses.Failed,
+            RequestStatuses.DeadLettered
+        };
+
+        statuses.Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public class RequestStatusTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        entity.Status.Should().Be(RequestStatus.Queued);
+        entity.Status.Should().Be(RequestStatuses.Queued);
     }
 }
 

@@ -73,7 +73,7 @@ public sealed class DetailsModel : PageModel
 public sealed record RequestViewModel(
     Guid Id,
     int LineNumber,
-    RequestStatus Status,
+    string Status,
     string? GpuPool,
     string InputPayload,
     string? OutputPayload,

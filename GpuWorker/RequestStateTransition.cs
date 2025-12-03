@@ -6,14 +6,14 @@ internal static class RequestStateTransition
 {
     public static void MarkCompleted(RequestEntity request, DateTimeOffset utcNow)
     {
-        request.Status = RequestStatus.Completed;
+        request.Status = RequestStatuses.Completed;
         request.CompletedAt = utcNow;
         request.ErrorMessage = null;
     }
 
     public static void MarkTransientFailureRequeued(RequestEntity request, string? reason)
     {
-        request.Status = RequestStatus.Queued;
+        request.Status = RequestStatuses.Queued;
         request.ErrorMessage = reason;
         request.StartedAt = null;
         request.CompletedAt = null;
@@ -22,7 +22,7 @@ internal static class RequestStateTransition
 
     public static void MarkTerminalFailure(RequestEntity request, DateTimeOffset utcNow, string reason)
     {
-        request.Status = RequestStatus.Failed;
+        request.Status = RequestStatuses.Failed;
         request.CompletedAt = utcNow;
         request.ErrorMessage = reason;
     }

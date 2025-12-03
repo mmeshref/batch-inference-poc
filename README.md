@@ -256,15 +256,24 @@ flowchart LR
 
     C --> D[SchedulerService]
     D -->|Assign GPU pool & SLA decisions| C
+    D --> WS[WorkerScaler<br/>Desired spot/ded counts]
 
     subgraph SpotWorkers["GPU Worker Pool - Spot"]
-        E1[Spot Worker 1]
-        E2[Spot Worker 2]
+        subgraph SP1["WorkerPullLoop + BackoffStrategy"]
+            E1[Spot Worker 1]
+        end
+        subgraph SP2["WorkerPullLoop + BackoffStrategy"]
+            E2[Spot Worker 2]
+        end
     end
 
     subgraph DedicatedWorkers["GPU Worker Pool - Dedicated"]
-        F1[Dedicated Worker 1]
-        F2[Dedicated Worker 2]
+        subgraph DP1["WorkerPullLoop + BackoffStrategy"]
+            F1[Dedicated Worker 1]
+        end
+        subgraph DP2["WorkerPullLoop + BackoffStrategy"]
+            F2[Dedicated Worker 2]
+        end
     end
 
     C -->|Dequeue via SKIP LOCKED| E1
@@ -277,7 +286,10 @@ flowchart LR
     F1 -->|Running → Completed/Failed| C
     F2 -->|Running → Completed/Failed| C
 
-    C -->|Batch & request status/output| J[Batch Portal UI]
+    E1 -->|/health/live + /ready| K[Kubernetes Probes]
+    E2 -->|/health/live + /ready| K
+    F1 -->|/health/live + /ready| K
+    F2 -->|/health/live + /ready| K
 
     subgraph Monitoring
         G[Prometheus]
@@ -287,10 +299,13 @@ flowchart LR
 
     B --> G
     D --> G
-    E1 --> G
-    E2 --> G
-    F1 --> G
-    F2 --> G
+    WS --> G
+    SP1 -->|worker_* metrics| G
+    SP2 -->|worker_* metrics| G
+    DP1 -->|worker_* metrics| G
+    DP2 -->|worker_* metrics| G
+
+    C -->|Batch & request status/output| J[Batch Portal UI]
 ```
 
 
@@ -322,6 +337,40 @@ flowchart LR
 - Prometheus scrapes metrics from all services.
 - Grafana provides dashboards.
 - Alertmanager handles alerting (config stubbed for easy extension).
+
+---
+
+## Worker Layer Enhancements
+
+### 1. Dynamic worker backlog capacity
+- The scheduler’s `WorkerScaler` computes desired replicas using simple, transparent ratios:
+  - **Spot** pools target 1 worker for every **5 queued spot requests**.
+  - **Dedicated** pools target 1 worker for every **10 queued dedicated requests**.
+- The scaler currently logs “Scaling Spot/Dedicated workers from X → Y”, which can be wired to Kubernetes APIs later without changing the math or tests.
+
+### 2. Exponential backoff pull loop
+- Each worker hosts a shared `WorkerPullLoop` that uses a pluggable `BackoffStrategy`.
+- Backoff starts at **250 ms** and doubles (500 ms → 1 s → 2 s → 4 s → 8 s) until capping at **10 s**, resetting immediately after a successful dequeue.
+- This keeps Postgres load down when queues are empty while still reacting quickly when work appears.
+
+### 3. Health endpoints
+- Workers expose Kestrel port **8081** with:
+  - `GET /health/live` – always returns 200 for Kubernetes liveness probes.
+  - `GET /health/ready` – returns 200 only after a DB connection succeeds; otherwise 503.
+- Deployment manifests now use these endpoints for readiness/liveness probes, so pods only enter service when they can actually pull work.
+
+### 4. Worker Prometheus metrics
+- **`worker_dequeue_total`** – counts every job fetched from the queue.
+- **`worker_completed_total`** – counts successful completions.
+- **`worker_failed_total`** – counts failures (including interruptions before requeue).
+- **`worker_idle_seconds`** – accumulates idle time spent backing off.
+- Existing Prometheus scraping on port 8080 automatically discovers these new series.
+
+### 5. Test coverage
+- `SchedulingLogicTests` assert the scaling math for both pools (0→0, 5→1, 6→2, 25→5, etc.).
+- `BackoffStrategyTests` verify initial delay, doubling behaviour, cap, and reset semantics.
+- `WorkerPullLoopTests` simulate repository responses to ensure idle backoff triggers, jobs bypass backoff, and success resets the strategy.
+- These tests run inside `tests/SchedulerService.UnitTests`, so regressions in scaling/backoff logic are caught before deploys.
 
 ---
 

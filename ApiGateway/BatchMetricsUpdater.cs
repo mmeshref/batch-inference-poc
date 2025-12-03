@@ -69,11 +69,11 @@ public sealed class BatchMetricsUpdater : BackgroundService
             .CountAsync(cancellationToken);
 
         var requestsCompleted = await db.Requests
-            .Where(r => r.Status == RequestStatus.Completed)
+            .Where(r => r.Status == RequestStatuses.Completed)
             .CountAsync(cancellationToken);
 
         var requestsFailed = await db.Requests
-            .Where(r => r.Status == RequestStatus.Failed)
+            .Where(r => r.Status == RequestStatuses.Failed)
             .CountAsync(cancellationToken);
 
         BatchMetrics.BatchesProcessedTotal.Set(batchesProcessed);

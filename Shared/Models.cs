@@ -3,13 +3,19 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Shared;
 
-public enum RequestStatus
+public static class RequestStatuses
 {
-    Queued = 0,
-    Running = 1,
-    Completed = 2,
-    Failed = 3,
-    DeadLettered = 4
+    public const string Queued = "Queued";
+    public const string Running = "Running";
+    public const string Completed = "Completed";
+    public const string Failed = "Failed";
+    public const string DeadLettered = "DeadLettered";
+}
+
+public static class GpuPools
+{
+    public const string Spot = "spot";
+    public const string Dedicated = "dedicated";
 }
 
 public sealed class FileEntity
@@ -48,7 +54,7 @@ public sealed class RequestEntity
     public int LineNumber { get; set; }
     public required string InputPayload { get; set; }
     public string? OutputPayload { get; set; }
-    public RequestStatus Status { get; set; } = RequestStatus.Queued;
+    public string Status { get; set; } = RequestStatuses.Queued;
     public required string GpuPool { get; set; }
     public string? AssignedWorker { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -121,9 +127,7 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
               .HasColumnName("BatchId");
         entity.Property(r => r.LineNumber).IsRequired();
         entity.Property(r => r.InputPayload).IsRequired();
-        entity.Property(r => r.Status)
-              .HasConversion<string>()
-              .IsRequired();
+        entity.Property(r => r.Status).IsRequired();
         entity.Property(r => r.GpuPool).IsRequired();
         entity.Property(r => r.CreatedAt).IsRequired();
 

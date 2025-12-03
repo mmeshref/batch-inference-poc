@@ -28,12 +28,12 @@ public class WorkerStateTransitionTests
     public void MarkCompleted_Should_Update_Status_And_Timestamps()
     {
         var request = RequestFactory.Create();
-        request.Status = RequestStatus.Running;
+        request.Status = RequestStatuses.Running;
         var completedAt = DateTimeOffset.UtcNow;
 
         RequestStateTransition.MarkCompleted(request, completedAt);
 
-        request.Status.Should().Be(RequestStatus.Completed);
+        request.Status.Should().Be(RequestStatuses.Completed);
         request.CompletedAt.Should().Be(completedAt);
         request.ErrorMessage.Should().BeNull();
     }
@@ -42,7 +42,7 @@ public class WorkerStateTransitionTests
     public void MarkTransientFailureRequeued_Should_Reset_Request_To_Queued()
     {
         var request = RequestFactory.Create();
-        request.Status = RequestStatus.Running;
+        request.Status = RequestStatuses.Running;
         request.AssignedWorker = "worker-1";
         request.StartedAt = DateTimeOffset.UtcNow;
         request.CompletedAt = DateTimeOffset.UtcNow;
@@ -51,7 +51,7 @@ public class WorkerStateTransitionTests
 
         RequestStateTransition.MarkTransientFailureRequeued(request, reason);
 
-        request.Status.Should().Be(RequestStatus.Queued);
+        request.Status.Should().Be(RequestStatuses.Queued);
         request.ErrorMessage.Should().Be(reason);
         request.AssignedWorker.Should().BeNull();
         request.StartedAt.Should().BeNull();
@@ -62,13 +62,13 @@ public class WorkerStateTransitionTests
     public void MarkTerminalFailure_Should_Set_Status_To_Failed()
     {
         var request = RequestFactory.Create();
-        request.Status = RequestStatus.Running;
+        request.Status = RequestStatuses.Running;
         var failedAt = DateTimeOffset.UtcNow;
         const string reason = "LLM call failed";
 
         RequestStateTransition.MarkTerminalFailure(request, failedAt, reason);
 
-        request.Status.Should().Be(RequestStatus.Failed);
+        request.Status.Should().Be(RequestStatuses.Failed);
         request.CompletedAt.Should().Be(failedAt);
         request.ErrorMessage.Should().Be(reason);
     }

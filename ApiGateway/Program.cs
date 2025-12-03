@@ -26,7 +26,7 @@ builder.Services.AddDbContext<BatchDbContext>(options =>
     options.UseNpgsql(connectionString);
 });
 
-var applyMigrations =
+var ensureSchema =
     builder.Configuration.GetValue<bool?>("Migrations:ApplyOnStartup") ?? false;
 
 builder.Services.AddScoped<ApiGateway.Services.IFileService, ApiGateway.Services.FileService>();
@@ -36,23 +36,23 @@ builder.Services.AddHostedService<BatchMetricsUpdater>();
 
 var app = builder.Build();
 
-if (applyMigrations)
+if (ensureSchema)
 {
     using var scope = app.Services.CreateScope();
     var logger = scope.ServiceProvider
         .GetRequiredService<ILoggerFactory>()
-        .CreateLogger("StartupMigrations");
+        .CreateLogger("StartupSchema");
 
     try
     {
         var db = scope.ServiceProvider.GetRequiredService<BatchDbContext>();
-        logger.LogInformation("Applying EF Core migrations at startup.");
-        db.Database.Migrate();
-        logger.LogInformation("EF Core migrations applied successfully.");
+        logger.LogInformation("Ensuring BatchDbContext schema exists via EnsureCreated().");
+        db.Database.EnsureCreated();
+        logger.LogInformation("Database schema ensured successfully.");
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Failed to apply EF Core migrations at startup.");
+        logger.LogError(ex, "Failed to ensure database schema on startup.");
         throw;
     }
 }
@@ -163,10 +163,10 @@ app.MapGet("/v1/batches/{id:guid}", async (
         .Select(g => new
         {
             Total = g.Count(),
-            Queued = g.Count(r => r.Status == RequestStatus.Queued),
-            Running = g.Count(r => r.Status == RequestStatus.Running),
-            Completed = g.Count(r => r.Status == RequestStatus.Completed),
-            Failed = g.Count(r => r.Status == RequestStatus.Failed)
+            Queued = g.Count(r => r.Status == RequestStatuses.Queued),
+            Running = g.Count(r => r.Status == RequestStatuses.Running),
+            Completed = g.Count(r => r.Status == RequestStatuses.Completed),
+            Failed = g.Count(r => r.Status == RequestStatuses.Failed)
         })
         .FirstOrDefaultAsync(cancellationToken) ?? new { Total = 0, Queued = 0, Running = 0, Completed = 0, Failed = 0 };
 

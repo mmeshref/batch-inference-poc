@@ -27,6 +27,19 @@ spec:
               value: "dedicated"
             - name: WORKER_ID
               value: "dedicated-1"
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 10
           volumeMounts:
             - name: user-storage
               mountPath: /data/files
