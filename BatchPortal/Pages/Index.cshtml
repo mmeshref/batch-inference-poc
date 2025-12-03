@@ -1,10 +1,120 @@
 ﻿@page
-@model IndexModel
+@model BatchPortal.Pages.IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Batch Inference Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<h1>Batch Inference Dashboard</h1>
+
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Batches</h5>
+                <p class="display-6">@Model.Dashboard.TotalBatches</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Completed (24h)</h5>
+                <p class="display-6 text-success">@Model.Dashboard.CompletedLast24h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Failed (24h)</h5>
+                <p class="display-6 text-danger">@Model.Dashboard.FailedLast24h</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">In Progress</h5>
+                <p class="display-6 text-warning">@Model.Dashboard.InProgress</p>
+            </div>
+        </div>
+    </div>
 </div>
+
+<h2>Recent Batches</h2>
+@if (!Model.Dashboard.RecentBatches.Any())
+{
+    <p class="text-muted">No batches yet.</p>
+}
+else
+{
+    <table class="table table-sm table-striped mb-4">
+        <thead>
+            <tr>
+                <th>Created</th>
+                <th>User</th>
+                <th>Status</th>
+                <th>GPU Pool</th>
+                <th>SLA</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        @foreach (var b in Model.Dashboard.RecentBatches)
+        {
+            var createdLocal = b.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+            <tr>
+                <td>@createdLocal</td>
+                <td>@b.UserId</td>
+                <td><status-badge value="@b.Status"></status-badge></td>
+                <td><pool-badge value="@b.GpuPool"></pool-badge></td>
+                <td>
+                    @if (!b.CompletedAt.HasValue)
+                    {
+                        <span class="badge bg-warning">In progress</span>
+                    }
+                    else if (b.IsSlaBreached)
+                    {
+                        <span class="badge bg-danger">Breached</span>
+                    }
+                    else
+                    {
+                        <span class="badge bg-success">Met</span>
+                    }
+                </td>
+                <td>
+                    <a asp-page="/Batches/Details" asp-route-id="@b.Id" class="btn btn-sm btn-outline-primary">
+                        Details
+                    </a>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+<h2>System Health</h2>
+<ul>
+    <li>
+        Database:
+        @if (Model.Dashboard.DbHealthy)
+        {
+            <span class="badge bg-success">Healthy</span>
+        }
+        else
+        {
+            <span class="badge bg-danger">Unreachable</span>
+        }
+    </li>
+    <li>
+        API Gateway:
+        @if (Model.Dashboard.ApiGatewayHealthy)
+        {
+            <span class="badge bg-success">Healthy</span>
+        }
+        else
+        {
+            <span class="badge bg-warning">Unknown</span>
+        }
+    </li>
+</ul>

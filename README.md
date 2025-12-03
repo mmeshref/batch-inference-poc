@@ -401,7 +401,6 @@ kubectl logs -n batch-inference <pod-name>
 ```
 
 ### UX Components
-### UX Components
 
 The portal includes custom Razor Tag Helpers to improve readability and consistency:
 
@@ -414,6 +413,23 @@ The portal includes custom Razor Tag Helpers to improve readability and consiste
 Additional styling is defined in:
 BatchPortal/wwwroot/css/ux-polish.css
 This stylesheet contains layout refinements and visual polish for the Batch Portal.
+
+#### Portal Landing Page
+
+The portal home page (`/`) acts as a lightweight operations dashboard:
+
+- High-level stats:
+  - Total number of batches.
+  - Batches completed and failed in the last 24 hours.
+  - In-progress batches (Queued or Running).
+
+- Recent batches table:
+  - Latest batches with user, status, GPU pool, and SLA state (Met / Breached / In progress).
+  - Direct link into the detailed view for each batch.
+
+- Basic system health:
+  - Database reachability check (simple read).
+  - API gateway health flag (currently simple / mockable check, extendable to real health endpoints).
 
 #### Batch Details UX
 
