@@ -17,10 +17,12 @@ public sealed class DetailsModel : PageModel
         _logger = logger;
     }
 
-public BatchEntity? Batch { get; private set; }
-public IReadOnlyList<RequestViewModel> Requests { get; private set; } = [];
+    public BatchEntity? Batch { get; private set; }
+    public IReadOnlyList<RequestViewModel> Requests { get; private set; } = [];
     public string? ErrorMessage { get; private set; }
-public bool HasRequeuedRequests { get; private set; }
+    public bool HasEscalatedRequests { get; private set; }
+    public int EscalatedRequestCount { get; private set; }
+    public DateTimeOffset? FirstEscalationAt { get; private set; }
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
@@ -35,19 +37,35 @@ public bool HasRequeuedRequests { get; private set; }
             return Page();
         }
 
-    Requests = Batch.Requests
-        .OrderBy(r => r.LineNumber)
-        .Select(r => new RequestViewModel(
-            r.Id,
-            r.LineNumber,
-            r.Status,
-            r.GpuPool,
-            r.InputPayload,
-            r.OutputPayload,
-            r.ErrorMessage))
-        .ToList();
+        Requests = Batch.Requests
+            .OrderBy(r => r.LineNumber)
+            .Select(r => new RequestViewModel(
+                r.Id,
+                r.LineNumber,
+                r.Status,
+                r.GpuPool,
+                r.InputPayload,
+                r.OutputPayload,
+                r.ErrorMessage,
+                r.StartedAt))
+            .ToList();
 
-    HasRequeuedRequests = Requests.Any(r => r.WasRequeuedFromSpot);
+        var escalatedRequests = Batch.Requests
+            .Where(r =>
+                string.Equals(r.GpuPool, "dedicated", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(r.ErrorMessage) &&
+                r.ErrorMessage.Contains("Simulated spot interruption", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        HasEscalatedRequests = escalatedRequests.Any();
+        EscalatedRequestCount = escalatedRequests.Count;
+        if (HasEscalatedRequests)
+        {
+            FirstEscalationAt = escalatedRequests
+                .Select(r => r.StartedAt ?? r.CreatedAt)
+                .OrderBy(dt => dt)
+                .FirstOrDefault();
+        }
 
         return Page();
     }
@@ -59,7 +77,8 @@ public sealed record RequestViewModel(
     string? GpuPool,
     string InputPayload,
     string? OutputPayload,
-    string? ErrorMessage)
+    string? ErrorMessage,
+    DateTimeOffset? StartedAt)
 {
     public bool WasRequeuedFromSpot =>
         !string.IsNullOrEmpty(ErrorMessage) &&
