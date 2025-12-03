@@ -3,6 +3,15 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Shared;
 
+public enum RequestStatus
+{
+    Queued,
+    Running,
+    Completed,
+    Failed,
+    DeadLettered
+}
+
 public sealed class FileEntity
 {
     public Guid Id { get; set; }
@@ -39,7 +48,7 @@ public sealed class RequestEntity
     public int LineNumber { get; set; }
     public required string InputPayload { get; set; }
     public string? OutputPayload { get; set; }
-    public required string Status { get; set; }
+    public RequestStatus Status { get; set; }
     public required string GpuPool { get; set; }
     public string? AssignedWorker { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
@@ -112,7 +121,9 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
               .HasColumnName("BatchId");
         entity.Property(r => r.LineNumber).IsRequired();
         entity.Property(r => r.InputPayload).IsRequired();
-        entity.Property(r => r.Status).IsRequired();
+        entity.Property(r => r.Status)
+              .HasConversion<string>()
+              .IsRequired();
         entity.Property(r => r.GpuPool).IsRequired();
         entity.Property(r => r.CreatedAt).IsRequired();
 

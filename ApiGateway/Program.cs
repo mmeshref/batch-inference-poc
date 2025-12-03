@@ -139,10 +139,10 @@ app.MapGet("/v1/batches/{id:guid}", async (
         .Select(g => new
         {
             Total = g.Count(),
-            Pending = g.Count(r => r.Status == "pending"),
-            Running = g.Count(r => r.Status == "running"),
-            Completed = g.Count(r => r.Status == "completed"),
-            Failed = g.Count(r => r.Status == "failed")
+            Pending = g.Count(r => r.Status == RequestStatus.Queued),
+            Running = g.Count(r => r.Status == RequestStatus.Running),
+            Completed = g.Count(r => r.Status == RequestStatus.Completed),
+            Failed = g.Count(r => r.Status == RequestStatus.Failed)
         })
         .FirstOrDefaultAsync(cancellationToken) ?? new { Total = 0, Pending = 0, Running = 0, Completed = 0, Failed = 0 };
 

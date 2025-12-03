@@ -55,7 +55,7 @@ public bool HasRequeuedRequests { get; private set; }
 public sealed record RequestViewModel(
     Guid Id,
     int LineNumber,
-    string Status,
+    RequestStatus Status,
     string? GpuPool,
     string InputPayload,
     string? OutputPayload,

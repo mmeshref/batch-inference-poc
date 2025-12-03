@@ -148,7 +148,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
                 LineNumber = lineNumber,
                 InputPayload = line,
                 OutputPayload = null,
-                Status = "pending",
+                Status = RequestStatus.Queued,
                 GpuPool = initialPool,
                 AssignedWorker = null,
                 CreatedAt = DateTimeOffset.UtcNow
@@ -176,7 +176,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
 
         var pendingRequests = await db.Requests
             .Include(r => r.Batch)
-            .Where(r => r.Status == "pending")
+            .Where(r => r.Status == RequestStatus.Queued)
             .ToListAsync(cancellationToken);
 
         if (pendingRequests.Count == 0)

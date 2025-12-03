@@ -89,7 +89,7 @@ public sealed class GpuWorkerService : BackgroundService
 
         // Claim a pending request for this gpu_pool
         var request = await db.Requests
-            .Where(r => r.Status == "pending" && r.GpuPool == _gpuPool)
+            .Where(r => r.Status == RequestStatus.Queued && r.GpuPool == _gpuPool)
             .OrderBy(r => r.CreatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -99,7 +99,7 @@ public sealed class GpuWorkerService : BackgroundService
         }
 
         // Mark as running
-        request.Status = "running";
+        request.Status = RequestStatus.Running;
         request.AssignedWorker = _workerId;
         request.StartedAt = DateTimeOffset.UtcNow;
 
@@ -120,7 +120,7 @@ public sealed class GpuWorkerService : BackgroundService
 
         await db.SaveChangesAsync(cancellationToken);
 
-        if (!string.Equals(request.Status, "pending", StringComparison.OrdinalIgnoreCase))
+        if (request.Status != RequestStatus.Queued)
         {
             await TryFinalizeBatchAsync(db, request.BatchId, cancellationToken);
         }
@@ -168,7 +168,7 @@ public sealed class GpuWorkerService : BackgroundService
             };
 
             request.OutputPayload = JsonSerializer.Serialize(output);
-            request.Status = "completed";
+            request.Status = RequestStatus.Completed;
             request.CompletedAt = DateTimeOffset.UtcNow;
             RequestsCompleted.WithLabels(_gpuPool).Inc();
         }
@@ -193,7 +193,7 @@ public sealed class GpuWorkerService : BackgroundService
             };
 
             request.OutputPayload = JsonSerializer.Serialize(output);
-            request.Status = "completed";
+            request.Status = RequestStatus.Completed;
             request.CompletedAt = DateTimeOffset.UtcNow;
             RequestsCompleted.WithLabels(_gpuPool).Inc();
         }
@@ -210,7 +210,7 @@ public sealed class GpuWorkerService : BackgroundService
 
         if (!isSpot || !isInterruption)
         {
-            request.Status = "failed";
+            request.Status = RequestStatus.Failed;
             request.CompletedAt = DateTimeOffset.UtcNow;
             request.ErrorMessage = exception.Message;
             RequestsFailed.WithLabels(_gpuPool).Inc();
@@ -222,7 +222,7 @@ public sealed class GpuWorkerService : BackgroundService
             request.Id,
             request.BatchId);
 
-        request.Status = "pending";
+        request.Status = RequestStatus.Queued;
         request.GpuPool = "dedicated";
         request.AssignedWorker = null;
         request.ErrorMessage = exception.Message;
@@ -256,7 +256,7 @@ public sealed class GpuWorkerService : BackgroundService
             .CountAsync(cancellationToken);
 
         var remaining = await db.Requests
-            .Where(r => r.BatchId == batchId && (r.Status == "pending" || r.Status == "running"))
+            .Where(r => r.BatchId == batchId && (r.Status == RequestStatus.Queued || r.Status == RequestStatus.Running))
             .CountAsync(cancellationToken);
 
         if (remaining > 0)
@@ -265,7 +265,7 @@ public sealed class GpuWorkerService : BackgroundService
         }
 
         var failed = await db.Requests
-            .Where(r => r.BatchId == batchId && r.Status == "failed")
+            .Where(r => r.BatchId == batchId && r.Status == RequestStatus.Failed)
             .CountAsync(cancellationToken);
 
         // All done (completed or failed). Generate output file.
@@ -290,7 +290,7 @@ public sealed class GpuWorkerService : BackgroundService
                 var line = r.OutputPayload ?? JsonSerializer.Serialize(new
                 {
                     error = r.ErrorMessage ?? "no output",
-                    status = r.Status,
+                    status = r.Status.ToString(),
                     line_number = r.LineNumber
                 });
 
