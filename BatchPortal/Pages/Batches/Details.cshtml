@@ -1,276 +1,156 @@
 @page
 @model BatchPortal.Pages.Batches.DetailsModel
-
-<h1 class="mb-3">Batch <code class="monospaced">@Model.Batch?.Id</code></h1>
+@{
+    ViewData["Title"] = "Batch Details";
+}
 
 @if (Model.Batch is null)
 {
     <div class="alert alert-danger">Batch not found.</div>
+    return;
+}
+
+<h1>Batch Details</h1>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="card-title">Batch <code class="monospaced">@Model.Batch.Id</code></h2>
+        <p class="card-text mb-2">
+            User: <strong>@Model.Batch.UserId</strong><br />
+            Status: <status-badge value="@Model.Batch.Status"></status-badge><br />
+            GPU Pool: <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
+        </p>
+        <div class="row">
+            <div class="col-md-6">
+                <p class="card-text mb-2">
+                    Created: @Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")<br />
+                    Started: @(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")<br />
+                    Completed: @(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")<br />
+                    SLA deadline: @Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                </p>
+            </div>
+            <div class="col-md-6">
+                <p class="card-text mb-2">
+                    SLA status:
+                    @if (Model.Batch.CompletedAt is null)
+                    {
+                        <span class="badge badge-sm bg-warning text-dark">In progress</span>
+                    }
+                    else if (Model.Batch.IsSlaBreached)
+                    {
+                        <span class="badge badge-sm bg-danger">Breached</span>
+                    }
+                    else
+                    {
+                        <span class="badge badge-sm bg-success">Met</span>
+                    }
+                </p>
+                <p class="card-text mb-0">
+                    Requests:
+                    <strong>@Model.Batch.TotalRequests</strong> total
+                    (Queued: @Model.Batch.QueuedCount,
+                    Running: @Model.Batch.RunningCount,
+                    Completed: @Model.Batch.CompletedCount,
+                    Failed: @Model.Batch.FailedCount)
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="timeline mb-4">
+    <h3 class="section-title">Timeline</h3>
+    <div class="timeline-steps">
+        <div class="timeline-step">
+            <div class="timeline-dot timeline-dot-ok"></div>
+            <div class="timeline-label">
+                <strong>Created</strong><br />
+                @Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-dot @(Model.Batch.StartedAt.HasValue ? "timeline-dot-ok" : string.Empty)"></div>
+            <div class="timeline-label">
+                <strong>Started</strong><br />
+                @(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "Pending")
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="@(Model.Batch.CompletedAt.HasValue
+                ? (Model.Batch.IsSlaBreached ? "timeline-dot timeline-dot-danger" : "timeline-dot timeline-dot-ok")
+                : "timeline-dot")"></div>
+            <div class="timeline-label">
+                <strong>Completed</strong><br />
+                @(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "In progress")
+            </div>
+        </div>
+        <div class="timeline-step">
+            <div class="timeline-dot @(Model.Batch.IsSlaBreached ? "timeline-dot-danger" : "timeline-dot-ok")"></div>
+            <div class="timeline-label">
+                <strong>SLA deadline</strong><br />
+                @Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+            </div>
+        </div>
+    </div>
+</div>
+
+<h3 class="section-title">Requests</h3>
+<div class="mb-2">
+    <span>Filter:</span>
+    <a asp-page="./Details" asp-route-id="@Model.Batch.Id" class="me-2 @(Model.StatusFilter is null ? "fw-bold" : string.Empty)">All</a>
+    @foreach (var status in Model.AvailableStatuses)
+    {
+        <a asp-page="./Details"
+           asp-route-id="@Model.Batch.Id"
+           asp-route-status="@status"
+           class="me-2 @(string.Equals(Model.StatusFilter, status, StringComparison.OrdinalIgnoreCase) ? "fw-bold" : string.Empty)">
+            @status
+        </a>
+    }
+</div>
+
+<table class="table table-sm table-striped align-middle">
+    <thead>
+        <tr>
+            <th>Request ID</th>
+            <th>Status</th>
+            <th>GPU Pool</th>
+            <th>Created</th>
+            <th>Completed</th>
+            <th>Error</th>
+        </tr>
+    </thead>
+    <tbody>
+    @if (!Model.Requests.Any())
+    {
+        <tr>
+            <td colspan="6" class="text-center">No requests found with this filter.</td>
+        </tr>
+    }
+    else
+    {
+        foreach (var request in Model.Requests)
+        {
+            <tr>
+                <td><code class="monospaced">@request.Id</code></td>
+                <td><status-badge value="@request.Status"></status-badge></td>
+                <td><pool-badge value="@request.GpuPool"></pool-badge></td>
+                <td>@request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                <td>@(request.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "—")</td>
+                <td>@(string.IsNullOrEmpty(request.ErrorMessage) ? "—" : request.ErrorMessage)</td>
+            </tr>
+        }
+    }
+    </tbody>
+</table>
+
+<h3 class="section-title">Interruption / Notes</h3>
+@if (!string.IsNullOrWhiteSpace(Model.Batch.Notes))
+{
+    <p>@Model.Batch.Notes</p>
 }
 else
 {
-    <h2 class="section-title">Batch Metadata</h2>
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body">
-            <div class="d-flex justify-content-between flex-wrap gap-2 mb-3">
-                <div>
-                    <status-badge value="@Model.Batch.Status"></status-badge>
-                    <pool-badge value="@Model.Batch.GpuPool" class="ms-2"></pool-badge>
-                </div>
-                <div class="text-muted">
-                    Created @TimeFormatting.ToRelative(Model.Batch.CreatedAt)
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-md-6">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">User</dt>
-                        <dd class="col-sm-8">@Model.Batch.UserId</dd>
-
-                        <dt class="col-sm-4">Created</dt>
-                        <dd class="col-sm-8">
-                            @Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                            <small class="text-muted">(@TimeFormatting.ToRelative(Model.Batch.CreatedAt))</small>
-                        </dd>
-
-                        <dt class="col-sm-4">Started</dt>
-                        <dd class="col-sm-8">
-                            @((Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")) ?? "-")
-                            @if (Model.Batch.StartedAt.HasValue)
-                            {
-                                <small class="text-muted">(@TimeFormatting.ToRelative(Model.Batch.StartedAt))</small>
-                            }
-                        </dd>
-
-                        <dt class="col-sm-4">SLA Window</dt>
-                        <dd class="col-sm-8">@Model.Batch.CompletionWindow</dd>
-                    </dl>
-                </div>
-                <div class="col-md-6">
-                    <dl class="row mb-0">
-                        <dt class="col-sm-4">Completed</dt>
-                        <dd class="col-sm-8">
-                            @((Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")) ?? "-")
-                            @if (Model.Batch.CompletedAt.HasValue)
-                            {
-                                <small class="text-muted">(@TimeFormatting.ToRelative(Model.Batch.CompletedAt))</small>
-                            }
-                        </dd>
-
-                        <dt class="col-sm-4">Notes</dt>
-                        <dd class="col-sm-8">@Model.Batch.Notes ?? "-"</dd>
-                    </dl>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <h2 class="section-title">Interruption / Notes</h2>
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body">
-            @if (Model.HasEscalatedRequests)
-            {
-                <div class="alert alert-warning mb-0" role="alert">
-                    <strong>Spot → Dedicated escalation detected.</strong>
-                    <div>@Model.EscalatedRequestCount request(s) were escalated due to interruption or SLA risk.</div>
-                    @if (Model.FirstEscalationAt.HasValue)
-                    {
-                        <div class="mt-1">
-                            First escalation around @Model.FirstEscalationAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                            <small class="text-muted">(@TimeFormatting.ToRelative(Model.FirstEscalationAt))</small>
-                        </div>
-                    }
-                </div>
-            }
-            else
-            {
-                <div class="alert alert-secondary mb-0">No interruptions detected for this batch.</div>
-            }
-        </div>
-    </div>
-
-    <h2 class="section-title">Batch Overview</h2>
-    <div class="row g-3 mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between mb-2">
-                        <div>Status</div>
-                        <status-badge value="@Model.Batch.Status"></status-badge>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <div>GPU Pool</div>
-                        <pool-badge value="@Model.Batch.GpuPool"></pool-badge>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-8">
-            <div class="card shadow-sm h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between flex-wrap gap-3">
-                        <div>
-                            <div class="text-muted small">Created</div>
-                            <div>@Model.Batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
-                            <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.CreatedAt)</div>
-                        </div>
-                        <div>
-                            <div class="text-muted small">Started</div>
-                            <div>@(Model.Batch.StartedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</div>
-                            @if (Model.Batch.StartedAt.HasValue)
-                            {
-                                <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.StartedAt)</div>
-                            }
-                        </div>
-                        <div>
-                            <div class="text-muted small">Completed</div>
-                            <div>@(Model.Batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-")</div>
-                            @if (Model.Batch.CompletedAt.HasValue)
-                            {
-                                <div class="text-muted small">@TimeFormatting.ToRelative(Model.Batch.CompletedAt)</div>
-                            }
-                        </div>
-                        <div>
-                            <div class="text-muted small">SLA Deadline</div>
-                            <div>@Model.Batch.SlaDeadline.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
-                            <div class="text-muted small">
-                                @(Model.Batch.IsSlaBreached ? "Breached" : "On track")
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <h2 class="section-title">Timeline</h2>
-    <div class="card shadow-sm mb-4">
-        <div class="card-body">
-            <div class="d-flex justify-content-between text-center flex-wrap timeline">
-                <div class="flex-fill">
-                    <div class="text-muted small">Created</div>
-                    <div>@Model.Batch.CreatedAt.ToLocalTime().ToString("HH:mm")</div>
-                </div>
-                <div class="timeline-line flex-fill"></div>
-                <div class="flex-fill">
-                    <div class="text-muted small">Started</div>
-                    <div>@(Model.Batch.StartedAt?.ToLocalTime().ToString("HH:mm") ?? "-")</div>
-                </div>
-                <div class="timeline-line flex-fill"></div>
-                <div class="flex-fill">
-                    <div class="text-muted small">Completed</div>
-                    <div>@(Model.Batch.CompletedAt?.ToLocalTime().ToString("HH:mm") ?? "-")</div>
-                </div>
-                <div class="timeline-line flex-fill"></div>
-                <div class="flex-fill">
-                    <div class="text-muted small">SLA Deadline</div>
-                    <div>@Model.Batch.SlaDeadline.ToLocalTime().ToString("HH:mm")</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <h2 class="section-title">Requests (@Model.Batch.TotalRequests)</h2>
-
-    <form method="get" class="row g-2 mb-3">
-        <input type="hidden" name="id" value="@Model.Batch.Id" />
-        <div class="col-md-4">
-            <select class="form-select" name="status">
-                <option value="">All statuses</option>
-                @foreach (var st in Model.AvailableStatuses)
-                {
-                    <option value="@st" selected="@(string.Equals(Model.StatusFilter, st, StringComparison.OrdinalIgnoreCase))">@st</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-2">
-            <button class="btn btn-outline-primary w-100" type="submit">Filter</button>
-        </div>
-        @if (!string.IsNullOrEmpty(Model.StatusFilter))
-        {
-            <div class="col-md-2">
-                <a class="btn btn-link" asp-page="./Details" asp-route-id="@Model.Batch.Id">Clear</a>
-            </div>
-        }
-    </form>
-
-    <table class="table table-sm table-striped align-middle">
-        <thead>
-            <tr>
-                <th>Line</th>
-                <th>Request Id</th>
-                <th>Status</th>
-                <th>GPU Pool</th>
-                <th>Created</th>
-                <th>Completed</th>
-                <th>Input</th>
-                <th>Output</th>
-                <th>Error / Notes</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (!Model.Requests.Any())
-            {
-                <tr>
-                    <td colspan="9" class="text-center">No requests yet.</td>
-                </tr>
-            }
-            else
-            {
-                foreach (var request in Model.Requests)
-                {
-                    <tr>
-                        <td>@request.LineNumber</td>
-                        <td><code class="monospaced">@request.Id</code></td>
-                        <td><status-badge value="@request.Status"></status-badge></td>
-                        <td><pool-badge value="@request.GpuPool"></pool-badge></td>
-                        <td>
-                            @request.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                            <div class="text-muted small">@TimeFormatting.ToRelative(request.CreatedAt)</div>
-                        </td>
-                        <td>
-                            @if (request.CompletedAt.HasValue)
-                            {
-                                @request.CompletedAt.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
-                                <div class="text-muted small">@TimeFormatting.ToRelative(request.CompletedAt)</div>
-                            }
-                            else
-                            {
-                                @("-")
-                            }
-                        </td>
-                        <td>
-                            <details>
-                                <summary>View</summary>
-                                <pre class="mb-0 mt-2">@request.InputPayload</pre>
-                            </details>
-                        </td>
-                        <td>
-                            <details>
-                                <summary>View</summary>
-                                <pre class="mb-0 mt-2">@request.OutputPayload</pre>
-                            </details>
-                        </td>
-                        <td>
-                            @if (request.WasRequeuedFromSpot)
-                            {
-                                <span class="badge bg-warning text-dark badge-sm">
-                                    Interrupted on spot, requeued to dedicated
-                                </span>
-                            }
-                            else if (!string.IsNullOrEmpty(request.ErrorMessage))
-                            {
-                                <span class="text-danger">@request.ErrorMessage</span>
-                            }
-                            else
-                            {
-                                <span class="text-muted">-</span>
-                            }
-                        </td>
-                    </tr>
-                }
-            }
-        </tbody>
-    </table>
+    <p class="text-muted">No notes recorded for this batch.</p>
 }
 

@@ -1,9 +1,7 @@
 using BatchPortal.Models;
-using BatchPortal.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Shared;
 
 namespace BatchPortal.Pages.Batches;
@@ -11,21 +9,18 @@ namespace BatchPortal.Pages.Batches;
 public sealed class DetailsModel : PageModel
 {
     private readonly BatchDbContext _dbContext;
-    private readonly ILogger<DetailsModel> _logger;
 
-    public DetailsModel(BatchDbContext dbContext, ILogger<DetailsModel> logger)
+    public DetailsModel(BatchDbContext dbContext)
     {
         _dbContext = dbContext;
-        _logger = logger;
     }
 
-    public BatchDetailsViewModel? Batch { get; private set; }
-    public IReadOnlyList<RequestViewModel> Requests { get; private set; } = [];
-    public string? ErrorMessage { get; private set; }
+    public BatchDetailsViewModel Batch { get; private set; } = default!;
+    public IReadOnlyList<RequestViewModel> Requests { get; private set; } = Array.Empty<RequestViewModel>();
+    public string? StatusFilter { get; private set; }
     public bool HasEscalatedRequests { get; private set; }
     public int EscalatedRequestCount { get; private set; }
     public DateTimeOffset? FirstEscalationAt { get; private set; }
-    public string? StatusFilter { get; private set; }
     public IReadOnlyList<string> AvailableStatuses { get; } = new[]
     {
         RequestStatuses.Queued,
@@ -34,29 +29,29 @@ public sealed class DetailsModel : PageModel
         RequestStatuses.Failed
     };
 
-    public async Task<IActionResult> OnGetAsync(Guid id, string? status)
+    public async Task<IActionResult> OnGetAsync(Guid id, string? status, CancellationToken cancellationToken)
     {
-        var batchEntity = await _dbContext.Batches
+        var batch = await _dbContext.Batches
             .Include(b => b.Requests)
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .SingleOrDefaultAsync(b => b.Id == id, cancellationToken);
 
-        if (batchEntity is null)
+        if (batch is null)
         {
-            ErrorMessage = $"Batch {id} was not found in the database.";
-            _logger.LogWarning("Batch details requested for id {BatchId} but batch was not found in the database.", id);
-            return Page();
+            return NotFound();
         }
+
+        Batch = MapToViewModel(batch);
 
         StatusFilter = string.IsNullOrWhiteSpace(status) ? null : status;
 
-        var requests = batchEntity.Requests.AsQueryable();
-        if (!string.IsNullOrEmpty(StatusFilter))
+        var query = batch.Requests.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(StatusFilter))
         {
-            requests = requests.Where(r => string.Equals(r.Status, StatusFilter, StringComparison.OrdinalIgnoreCase));
+            query = query.Where(r => string.Equals(r.Status, StatusFilter, StringComparison.OrdinalIgnoreCase));
         }
 
-        Requests = requests
-            .OrderBy(r => r.LineNumber)
+        Requests = query
+            .OrderBy(r => r.CreatedAt)
             .Select(r => new RequestViewModel(
                 r.Id,
                 r.LineNumber,
@@ -70,7 +65,7 @@ public sealed class DetailsModel : PageModel
                 r.CompletedAt))
             .ToList();
 
-        var escalatedRequests = batchEntity.Requests
+        var escalatedRequests = batch.Requests
             .Where(r =>
                 string.Equals(r.GpuPool, GpuPools.Dedicated, StringComparison.OrdinalIgnoreCase) &&
                 !string.IsNullOrEmpty(r.ErrorMessage) &&
@@ -87,30 +82,33 @@ public sealed class DetailsModel : PageModel
                 .FirstOrDefault();
         }
 
-        var slaDeadline = batchEntity.CreatedAt + batchEntity.CompletionWindow;
-        var completedAt = batchEntity.CompletedAt;
-
-        Batch = new BatchDetailsViewModel
-        {
-            Id = batchEntity.Id,
-            UserId = batchEntity.UserId,
-            Status = batchEntity.Status,
-            GpuPool = batchEntity.GpuPool,
-            CreatedAt = batchEntity.CreatedAt.UtcDateTime,
-            StartedAt = batchEntity.StartedAt?.UtcDateTime,
-            CompletedAt = completedAt?.UtcDateTime,
-            CompletionWindow = batchEntity.CompletionWindow,
-            SlaDeadline = slaDeadline.UtcDateTime,
-            IsSlaBreached = completedAt.HasValue && completedAt.Value > slaDeadline,
-            TotalRequests = batchEntity.Requests.Count,
-            QueuedCount = batchEntity.Requests.Count(r => r.Status == RequestStatuses.Queued),
-            RunningCount = batchEntity.Requests.Count(r => r.Status == RequestStatuses.Running),
-            CompletedCount = batchEntity.Requests.Count(r => r.Status == RequestStatuses.Completed),
-            FailedCount = batchEntity.Requests.Count(r => r.Status == RequestStatuses.Failed),
-            Notes = batchEntity.ErrorMessage
-        };
-
         return Page();
+    }
+
+    internal static BatchDetailsViewModel MapToViewModel(BatchEntity batch)
+    {
+        var deadline = batch.CreatedAt + batch.CompletionWindow;
+        var requests = batch.Requests ?? Array.Empty<RequestEntity>();
+
+        return new BatchDetailsViewModel
+        {
+            Id = batch.Id,
+            UserId = batch.UserId,
+            Status = batch.Status,
+            GpuPool = batch.GpuPool,
+            CreatedAt = batch.CreatedAt.UtcDateTime,
+            StartedAt = batch.StartedAt?.UtcDateTime,
+            CompletedAt = batch.CompletedAt?.UtcDateTime,
+            CompletionWindow = batch.CompletionWindow,
+            SlaDeadline = deadline.UtcDateTime,
+            IsSlaBreached = batch.CompletedAt.HasValue && batch.CompletedAt.Value > deadline,
+            TotalRequests = requests.Count(),
+            QueuedCount = requests.Count(r => r.Status == RequestStatuses.Queued),
+            RunningCount = requests.Count(r => r.Status == RequestStatuses.Running),
+            CompletedCount = requests.Count(r => r.Status == RequestStatuses.Completed),
+            FailedCount = requests.Count(r => r.Status == RequestStatuses.Failed),
+            Notes = batch.ErrorMessage
+        };
     }
 
 public sealed record RequestViewModel(

@@ -376,6 +376,8 @@ flowchart LR
 
 ## Development Guide
 
+### Running Locally
+
 Run services locally without Kubernetes:
 
 ```bash
@@ -397,6 +399,38 @@ Use `dotnet watch run` for hot reload during development. Inspect logs in Kubern
 ```bash
 kubectl logs -n batch-inference <pod-name>
 ```
+
+### UX Components
+### UX Components
+
+The portal includes custom Razor Tag Helpers to improve readability and consistency:
+
+- `<status-badge>`  
+  Displays a color-coded badge for batch and request statuses (Queued, Running, Completed, Failed).
+
+- `<pool-badge>`  
+  Displays a color-coded badge representing the GPU pool (spot, dedicated).
+
+Additional styling is defined in:
+BatchPortal/wwwroot/css/ux-polish.css
+This stylesheet contains layout refinements and visual polish for the Batch Portal.
+
+#### Batch Details UX
+
+The Batch Details page provides:
+
+- A summary card showing:
+  - Status and GPU pool badges
+  - Created / Started / Completed timestamps
+  - SLA deadline and whether the SLA was met or breached
+  - Aggregated request counts (Queued / Running / Completed / Failed)
+- A lightweight visual timeline:
+  - Created → Started → Completed → SLA deadline
+  - With color hints when the batch completes after the SLA deadline.
+- An improved Requests section:
+  - Color-coded status and GPU pool badges
+  - Clear timestamps and error messages
+  - Optional server-side status filter (All / Queued / Running / Completed / Failed) via query string.
 
 ---
 

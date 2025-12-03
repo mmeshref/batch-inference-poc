@@ -22,6 +22,7 @@
 
 .timeline {
     align-items: center;
+    padding: 10px 0;
 }
 
 .timeline-line {
@@ -29,8 +30,44 @@
     margin: 0 10px;
 }
 
+.timeline-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.timeline-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #888;
+    margin-top: 4px;
+}
+
+.timeline-dot-ok {
+    background-color: #28a745;
+}
+
+.timeline-dot-danger {
+    background-color: #dc3545;
+}
+
+.timeline-label {
+    font-size: 0.9rem;
+}
+
 code.monospaced {
     font-family: ui-monospace, SFMono-Regular, SF Mono, Consolas, "Liberation Mono", Menlo, monospace;
     font-size: 0.85rem;
+}
+
+.text-monospace {
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
