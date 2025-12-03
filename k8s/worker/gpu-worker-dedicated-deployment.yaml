@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: gpu-worker-dedicated
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: gpu-worker-dedicated

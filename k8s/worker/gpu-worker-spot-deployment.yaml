@@ -3,7 +3,7 @@ kind: Deployment
 metadata:
   name: gpu-worker-spot
 spec:
-  replicas: 1
+  replicas: 15
   selector:
     matchLabels:
       app: gpu-worker-spot
