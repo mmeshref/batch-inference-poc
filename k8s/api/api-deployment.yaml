@@ -21,6 +21,8 @@ spec:
               value: "Production"
             - name: ConnectionStrings__Postgres
               value: "Host=postgres;Port=5432;Database=batchdb;Username=batch;Password=batch"
+            - name: MIGRATIONS__APPLYONSTARTUP
+              value: "true"
             - name: Storage__BasePath
               value: "/data/files"
           ports:

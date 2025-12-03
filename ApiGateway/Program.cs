@@ -26,12 +26,36 @@ builder.Services.AddDbContext<BatchDbContext>(options =>
     options.UseNpgsql(connectionString);
 });
 
+var applyMigrations =
+    builder.Configuration.GetValue<bool?>("Migrations:ApplyOnStartup") ?? false;
+
 builder.Services.AddScoped<ApiGateway.Services.IFileService, ApiGateway.Services.FileService>();
 builder.Services.AddScoped<ApiGateway.Services.IBatchService, ApiGateway.Services.BatchService>();
 
 builder.Services.AddHostedService<BatchMetricsUpdater>();
 
 var app = builder.Build();
+
+if (applyMigrations)
+{
+    using var scope = app.Services.CreateScope();
+    var logger = scope.ServiceProvider
+        .GetRequiredService<ILoggerFactory>()
+        .CreateLogger("StartupMigrations");
+
+    try
+    {
+        var db = scope.ServiceProvider.GetRequiredService<BatchDbContext>();
+        logger.LogInformation("Applying EF Core migrations at startup.");
+        db.Database.Migrate();
+        logger.LogInformation("EF Core migrations applied successfully.");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Failed to apply EF Core migrations at startup.");
+        throw;
+    }
+}
 
 // Prometheus HTTP metrics + /metrics endpoint
 app.UseHttpMetrics();
