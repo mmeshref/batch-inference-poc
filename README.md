@@ -33,9 +33,9 @@ Before installing or deploying any part of this system, ensure the following dep
 
 ---
 
-## 2. Core Tools
+### 2. Core Tools
 
-### **Docker Desktop**
+#### **Docker Desktop**
 Required to run:
 - Kubernetes cluster
 - Container images
@@ -46,21 +46,21 @@ Make sure Kubernetes is enabled in Docker Desktop:
 Docker Desktop → Settings → Kubernetes → Enable Kubernetes
 ---
 
-## 3. Kubernetes Tooling
+### 3. Kubernetes Tooling
 
-### **kubectl**
+#### **kubectl**
 Command-line tool to interact with Kubernetes.
 Install:
 brew install kubectl
 
-### **Helm (Optional but recommended)**
+#### **Helm (Optional but recommended)**
 Some users may want to install Grafana/Prometheus via Helm.
 Install:
 brew install helm
 
 ---
 
-## 4. .NET SDK
+### 4. .NET SDK
 The entire stack is written in **.NET 8**.
 Install:
 brew install –cask dotnet-sdk
@@ -70,7 +70,7 @@ dotnet –version
 
 ---
 
-## 5. Postgres Client Tools
+### 5. Postgres Client Tools
 Used for debugging, schema inspection, manual database checks.
 
 Install:
@@ -82,23 +82,23 @@ psql –version
 
 ---
 
-## 6. Kubernetes Monitoring Stack Requirements
+### 6. Kubernetes Monitoring Stack Requirements
 
-### **Prometheus**
+#### **Prometheus**
 Runs inside Kubernetes as a Deployment.  
 No host installation required, but you need:
 - Correct YAML
 - Persistent volumes
 - RBAC permissions
 
-### **Grafana**
+#### **Grafana**
 Runs inside Kubernetes.  
 You need:
 - Service type NodePort
 - Prometheus datasource properly configured
 - Dashboards ConfigMap loaded
 
-### **Alertmanager**
+#### **Alertmanager**
 Runs inside Kubernetes.  
 Requires:
 - Proper alert rules mounted in `/etc/prometheus/rules`
@@ -106,9 +106,9 @@ Requires:
 
 ---
 
-## 7. Optional (but recommended)
+### 7. Optional (but recommended)
 
-### **Lens / k9s**
+#### **Lens / k9s**
 GUI or terminal UI for Kubernetes cluster introspection.
 
 Install Lens:
@@ -119,7 +119,7 @@ brew install k9s
 
 ---
 
-## 8. Git + GitHub CLI
+### 8. Git + GitHub CLI
 Recommended for cloning & maintaining the repo.
 
 Install GitHub CLI:
@@ -127,13 +127,13 @@ brew install gh
 
 ---
 
-## 9. Make (Optional)
+### 9. Make (Optional)
 If you want to convert shell scripts to a Makefile.
 Already available on macOS.
 
 ---
 
-# ✔️ Summary of Required Tools
+### ✔️ Summary of Required Tools
 
 | Component          | Required | Purpose |
 |-------------------|----------|---------|
