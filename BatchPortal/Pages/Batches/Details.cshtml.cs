@@ -47,7 +47,9 @@ public sealed class DetailsModel : PageModel
                 r.InputPayload,
                 r.OutputPayload,
                 r.ErrorMessage,
-                r.StartedAt))
+                r.CreatedAt,
+                r.StartedAt,
+                r.CompletedAt))
             .ToList();
 
         var escalatedRequests = Batch.Requests
@@ -78,7 +80,9 @@ public sealed record RequestViewModel(
     string InputPayload,
     string? OutputPayload,
     string? ErrorMessage,
-    DateTimeOffset? StartedAt)
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt)
 {
     public bool WasRequeuedFromSpot =>
         !string.IsNullOrEmpty(ErrorMessage) &&

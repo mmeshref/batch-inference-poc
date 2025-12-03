@@ -42,7 +42,7 @@
     </div>
 </div>
 
-<table class="table table-striped">
+<table class="table table-striped align-middle">
     <thead>
         <tr>
             <th>Id</th>
@@ -51,6 +51,7 @@
             <th>GPU Pool</th>
             <th>Total Requests</th>
             <th>Created</th>
+            <th>Age</th>
             <th>Completed</th>
         </tr>
     </thead>
@@ -68,26 +69,21 @@
                 <tr>
                     <td>
                         <a asp-page="/Batches/Details" asp-route-id="@batch.Id">
-                            <code>@batch.Id</code>
+                                <code class="monospaced">@batch.Id</code>
                         </a>
                     </td>
                     <td>@batch.UserId</td>
-                    <td>
-                        @{
-                            var statusClass = batch.Status.ToLowerInvariant() switch
-                            {
-                                "completed" => "bg-success",
-                                "running" or "processing" or "in_progress" => "bg-warning text-dark",
-                                "failed" => "bg-danger",
-                                _ => "bg-secondary"
-                            };
-                        }
-                        <span class="badge @statusClass text-uppercase">@batch.Status</span>
-                    </td>
-                    <td>@batch.GpuPool</td>
+                        <td><status-badge value="@batch.Status"></status-badge></td>
+                        <td><pool-badge value="@batch.GpuPool"></pool-badge></td>
                     <td>@batch.TotalRequests</td>
-                    <td>@batch.CreatedAt.ToLocalTime().ToString("u")</td>
-                    <td>@(batch.CompletedAt?.ToLocalTime().ToString("u") ?? "-")</td>
+                        <td>@batch.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                        <td>@TimeFormatting.ToRelative(batch.CreatedAt)</td>
+                        <td>
+                            @{
+                                var completed = batch.CompletedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-";
+                            }
+                            @completed
+                        </td>
                 </tr>
             }
         }

@@ -1,0 +1,27 @@
+.section-title {
+    font-size: 1.4rem;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+.badge-sm {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.bg-purple {
+    background-color: #6f42c1;
+}
+
+.bg-orange {
+    background-color: #fd7e14;
+}
+
+code.monospaced {
+    font-family: ui-monospace, SFMono-Regular, SF Mono, Consolas, "Liberation Mono", Menlo, monospace;
+    font-size: 0.85rem;
+}
+

@@ -7,12 +7,13 @@
     <title>@ViewData["Title"] - BatchPortal</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/ux-polish.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/BatchPortal.styles.css" asp-append-version="true" />
 </head>
 <body>
     <header>
         <nav class="navbar navbar-expand-sm navbar-dark bg-dark">
-            <div class="container">
+            <div class="container-lg">
                 <a class="navbar-brand" asp-area="" asp-page="/Index">Batch Portal</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
@@ -37,14 +38,14 @@
             </div>
         </nav>
     </header>
-    <div class="container mt-4">
+    <div class="container-lg mt-4">
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
     </div>
 
     <footer class="border-top footer text-muted">
-        <div class="container">
+        <div class="container-lg">
             &copy; 2025 - BatchPortal - <a asp-area="" asp-page="/Privacy">Privacy</a>
         </div>
     </footer>
