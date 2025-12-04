@@ -21,6 +21,10 @@ public sealed class DetailsModel : PageModel
 
     public BatchDetailsViewModel Batch { get; private set; } = default!;
     public string? OutputFileDownloadUrl { get; private set; }
+    
+    [TempData]
+    public string? Message { get; set; }
+    
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
         var batch = await _dbContext.Batches
@@ -49,6 +53,31 @@ public sealed class DetailsModel : PageModel
         }
 
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostCancelAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var batch = await _dbContext.Batches
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
+        if (batch is null)
+        {
+            return NotFound();
+        }
+
+        var success = await _apiClient.CancelBatchAsync(id, batch.UserId, cancellationToken);
+
+        if (success)
+        {
+            Message = "Batch cancelled successfully.";
+        }
+        else
+        {
+            Message = "Could not cancel batch. It may have already completed or been cancelled.";
+        }
+
+        return RedirectToPage(new { id });
     }
 
     internal static BatchDetailsViewModel MapToViewModel(BatchEntity batch) => BatchDetailsMapper.Map(batch);

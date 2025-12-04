@@ -208,6 +208,20 @@ Get batch status:
 curl http://localhost:30080/v1/batches/<BATCH_ID>
 ```
 
+Get request status:
+
+```bash
+curl http://localhost:30080/v1/requests/<REQUEST_ID> \
+  -H "X-User-Id: my-user"
+```
+
+Cancel a batch:
+
+```bash
+curl -X POST http://localhost:30080/v1/batches/<BATCH_ID>/cancel \
+  -H "X-User-Id: my-user"
+```
+
 ---
 
 ## System Overview
@@ -463,6 +477,44 @@ The `Batches` page is designed to behave like a small operations console:
   - Default ordering is by creation time (newest first).
 
 Each batch row shows status and GPU pool with badges, plus basic request counts and failures, so you can quickly spot hot or unhealthy workloads.
+
+##### Priority-based scheduling
+
+Batches can now be assigned a priority level (Normal = 1, Medium = 5, High = 10+). The system:
+- Displays priority badges (Normal/Medium/High) in the batch list with visual color coding
+- Workers dequeue requests ordered by batch priority (highest first), then by creation time
+- Ensures high-priority workloads are processed before lower-priority ones when the queue is deep
+
+This allows users to designate critical batches (via the `metadata.priority` field when creating a batch) and ensures they're fast-tracked through the system.
+
+##### Pagination
+
+The batch list now supports pagination to handle large numbers of batches efficiently:
+- Configurable page size (default: 25 batches per page, range: 10-100)
+- Navigation controls: Previous, Next, page numbers, and quick jump to first/last page
+- Shows "X to Y of Z batches" for context
+- Preserves filters and sort order across page navigation
+
+This prevents performance degradation when viewing thousands of batches and provides a cleaner browsing experience.
+
+##### Batch cancellation
+
+Users can now cancel batches that are queued or in progress:
+- **API:** `POST /v1/batches/{id}/cancel` endpoint marks the batch as cancelled and stops all queued requests
+- **Portal:** "Cancel Batch" button appears on the Batch Details page for active batches
+- Running requests complete normally, but queued requests are marked as `Cancelled`
+- Cancelled batches appear with distinct status badges and cannot be restarted
+
+This gives operators immediate control to stop errant or unnecessary workloads without waiting for completion.
+
+##### Individual request API
+
+A new endpoint provides direct access to individual request details:
+- **`GET /v1/requests/{id}`** returns full request metadata including:
+  - Status, GPU pool, input/output payloads
+  - Timestamps (created, started, completed)
+  - Error messages and assigned worker ID
+- Useful for programmatic monitoring and debugging specific requests without fetching the entire batch
 
 ##### Request details UX enhancements
 

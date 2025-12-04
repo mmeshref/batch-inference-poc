@@ -1,11 +1,35 @@
+using System;
 using FluentAssertions;
 using SchedulerService;
 using Xunit;
-using System;
 
 namespace SchedulerService.UnitTests;
 
-public class SchedulingLogicTests
+public class SchedulingLogicScalingTests
+{
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(5, 1)]
+    [InlineData(6, 2)]
+    [InlineData(25, 5)]
+    public void ComputeDesiredSpotWorkerCount_Should_MatchExpected(int queued, int expected)
+    {
+        SchedulingLogic.ComputeDesiredSpotWorkerCount(queued).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(1, 1)]
+    [InlineData(10, 1)]
+    [InlineData(11, 2)]
+    public void ComputeDesiredDedicatedWorkerCount_Should_MatchExpected(int queued, int expected)
+    {
+        SchedulingLogic.ComputeDesiredDedicatedWorkerCount(queued).Should().Be(expected);
+    }
+}
+
+public class SchedulingLogicDeterminePoolTests
 {
     [Fact]
     public void Spot_To_Dedicated_When_Within_Threshold()
@@ -61,4 +85,3 @@ public class SchedulingLogicTests
         pool.Should().Be("dedicated");
     }
 }
-

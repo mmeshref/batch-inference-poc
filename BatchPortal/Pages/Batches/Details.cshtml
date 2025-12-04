@@ -4,7 +4,23 @@
     ViewData["Title"] = "Batch Details";
 }
 
-<h1>Batch @Model.Batch.Id</h1>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1>Batch @Model.Batch.Id</h1>
+    @if (Model.Batch.Status is "Queued" or "Running")
+    {
+        <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Batch.Id" onsubmit="return confirm('Are you sure you want to cancel this batch?');">
+            <button type="submit" class="btn btn-danger">Cancel Batch</button>
+        </form>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(Model.Message))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        @Model.Message
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
 <div class="row mb-4">
     <div class="col-md-6 mb-3">

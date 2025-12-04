@@ -35,13 +35,28 @@ public sealed class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public string? SortDir { get; set; }
 
+    [BindProperty(SupportsGet = true)]
+    public int CurrentPage { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int PageSize { get; set; } = 25;
+
     public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Queued", "Running", "Completed", "Failed" };
     public IReadOnlyList<string> PoolOptions { get; } = new[] { "All", "spot", "dedicated" };
 
     public IReadOnlyList<BatchListItemViewModel> Batches { get; private set; } = Array.Empty<BatchListItemViewModel>();
+    public int TotalCount { get; private set; }
+    public int TotalPages => (int)Math.Ceiling((double)TotalCount / PageSize);
+    public bool HasPreviousPage => CurrentPage > 1;
+    public bool HasNextPage => CurrentPage < TotalPages;
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        // Validate and clamp pagination parameters
+        if (CurrentPage < 1) CurrentPage = 1;
+        if (PageSize < 10) PageSize = 10;
+        if (PageSize > 100) PageSize = 100;
+
         var query = _dbContext.Batches
             .Include(b => b.Requests)
             .AsQueryable();
@@ -66,6 +81,9 @@ public sealed class IndexModel : PageModel
                 b.Id.ToString().Contains(search));
         }
 
+        // Get total count before pagination
+        TotalCount = await query.CountAsync(cancellationToken);
+
         var sortBy = (SortBy ?? "created").ToLowerInvariant();
         var sortDir = (SortDir ?? "desc").ToLowerInvariant();
         var sortDesc = sortDir != "asc";
@@ -85,21 +103,24 @@ public sealed class IndexModel : PageModel
             _ => query.OrderByDescending(b => b.CreatedAt)
         };
 
-        const int pageSize = 50;
+        var skip = (CurrentPage - 1) * PageSize;
 
         Batches = await query
-            .Take(pageSize)
+            .Skip(skip)
+            .Take(PageSize)
             .Select(b => new BatchListItemViewModel
             {
                 Id = b.Id,
                 UserId = b.UserId,
                 Status = b.Status,
                 GpuPool = b.GpuPool,
+                Priority = b.Priority,
                 CreatedAt = b.CreatedAt,
                 CompletedAt = b.CompletedAt,
                 TotalRequests = b.Requests.Count,
                 CompletedRequests = b.Requests.Count(r => r.Status == RequestStatuses.Completed),
-                FailedRequests = b.Requests.Count(r => r.Status == RequestStatuses.Failed)
+                FailedRequests = b.Requests.Count(r => r.Status == RequestStatuses.Failed),
+                IsSlaBreached = b.CompletedAt.HasValue && b.CompletedAt.Value > b.CreatedAt + b.CompletionWindow
             })
             .ToListAsync(cancellationToken);
     }

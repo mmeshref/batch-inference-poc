@@ -9,6 +9,7 @@
       "SchedulerService.UnitTests/1.0.0": {
         "dependencies": {
           "FluentAssertions": "6.12.0",
+          "GpuWorker": "1.0.0",
           "Microsoft.NET.Test.Sdk": "17.11.0",
           "SchedulerService": "1.0.0",
           "Shared": "1.0.0",
@@ -804,6 +805,22 @@
         }
       },
       "xunit.runner.visualstudio/2.8.1": {},
+      "GpuWorker/1.0.0": {
+        "dependencies": {
+          "Microsoft.EntityFrameworkCore": "8.0.4",
+          "Microsoft.Extensions.Hosting": "8.0.0",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.4",
+          "Shared": "1.0.0",
+          "prometheus-net": "8.2.1",
+          "prometheus-net.AspNetCore": "8.2.1"
+        },
+        "runtime": {
+          "GpuWorker.dll": {
+            "assemblyVersion": "1.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
+      },
       "SchedulerService/1.0.0": {
         "dependencies": {
           "Microsoft.EntityFrameworkCore": "8.0.4",
@@ -1295,6 +1312,11 @@
       "sha512": "sha512-qBTK0WAcnw65mymIjVDqWUTdqjMyzjwu9e9SF0oGYfYELgbcteDZ4fQLJaXw8mzkvpAD7YdoexBbg8VYQFkWWA==",
       "path": "xunit.runner.visualstudio/2.8.1",
       "hashPath": "xunit.runner.visualstudio.2.8.1.nupkg.sha512"
+    },
+    "GpuWorker/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
     },
     "SchedulerService/1.0.0": {
       "type": "project",

@@ -258,6 +258,85 @@ app.MapGet("/v1/batches/{id:guid}/output", async (
     return Results.File(stream, contentType: "text/plain");
 });
 
+app.MapGet("/v1/requests/{id:guid}", async (
+    Guid id,
+    HttpRequest request,
+    BatchDbContext dbContext,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(request, out var userId, out var errorResult))
+    {
+        return errorResult!;
+    }
+
+    var requestEntity = await dbContext.Requests
+        .Include(r => r.Batch)
+        .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+    if (requestEntity is null || requestEntity.Batch is null || requestEntity.Batch.UserId != userId)
+    {
+        return Results.NotFound();
+    }
+
+    var response = new RequestResponse(
+        requestEntity.Id,
+        requestEntity.BatchId,
+        requestEntity.LineNumber,
+        requestEntity.Status,
+        requestEntity.GpuPool,
+        requestEntity.InputPayload,
+        requestEntity.OutputPayload,
+        requestEntity.CreatedAt,
+        requestEntity.StartedAt,
+        requestEntity.CompletedAt,
+        requestEntity.ErrorMessage,
+        requestEntity.AssignedWorker);
+
+    return Results.Ok(response);
+});
+
+app.MapPost("/v1/batches/{id:guid}/cancel", async (
+    Guid id,
+    HttpRequest request,
+    BatchDbContext dbContext,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(request, out var userId, out var errorResult))
+    {
+        return errorResult!;
+    }
+
+    var batch = await dbContext.Batches
+        .FirstOrDefaultAsync(b => b.Id == id && b.UserId == userId, cancellationToken);
+
+    if (batch is null)
+    {
+        return Results.NotFound();
+    }
+
+    if (batch.Status is "completed" or "failed" or "cancelled")
+    {
+        return Results.BadRequest($"Cannot cancel batch with status '{batch.Status}'.");
+    }
+
+    batch.Status = "cancelled";
+    batch.CompletedAt = DateTimeOffset.UtcNow;
+    batch.ErrorMessage = "Batch cancelled by user";
+
+    var cancelledCount = await dbContext.Requests
+        .Where(r => r.BatchId == id && r.Status == RequestStatuses.Queued)
+        .ExecuteUpdateAsync(
+            setters => setters
+                .SetProperty(r => r.Status, RequestStatuses.Cancelled)
+                .SetProperty(r => r.ErrorMessage, "Batch cancelled by user")
+                .SetProperty(r => r.CompletedAt, DateTimeOffset.UtcNow),
+            cancellationToken);
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(new { id = batch.Id, status = batch.Status, cancelledRequests = cancelledCount });
+});
+
 
 using (var scope = app.Services.CreateScope())
 {
@@ -340,6 +419,21 @@ public sealed record BatchResponse(
     int RunningRequests,
     int CompletedRequests,
     int FailedRequests
+);
+
+public sealed record RequestResponse(
+    Guid Id,
+    Guid BatchId,
+    int LineNumber,
+    string Status,
+    string GpuPool,
+    string InputPayload,
+    string? OutputPayload,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
+    string? ErrorMessage,
+    string? AssignedWorker
 );
 
 public partial class Program { }

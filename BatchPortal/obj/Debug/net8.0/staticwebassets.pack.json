@@ -9,6 +9,10 @@
       "PackagePath": "staticwebassets/css/site.css"
     },
     {
+      "Id": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/wwwroot/css/ux-polish.css",
+      "PackagePath": "staticwebassets/css/ux-polish.css"
+    },
+    {
       "Id": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/wwwroot/favicon.ico",
       "PackagePath": "staticwebassets/favicon.ico"
     },

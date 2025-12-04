@@ -1,0 +1,12 @@
+@model int
+@{
+    var priority = Model;
+    var (css, label) = priority switch
+    {
+        >= 10 => ("badge bg-danger", "High"),
+        >= 5 => ("badge bg-warning text-dark", "Medium"),
+        _ => ("badge bg-secondary", "Normal")
+    };
+}
+<span class="@css">@label</span>
+

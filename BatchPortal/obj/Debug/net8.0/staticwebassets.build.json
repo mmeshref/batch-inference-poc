@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "F0zCVi/G97uiyI3YOq8UI9lVuaeaRt/HnK/x/ryz9bE=",
+  "Hash": "PNKW1+lSDkRsGNIBcfOfsC2sIRjvB+2Uhz52EGEJ0Ko=",
   "Source": "BatchPortal",
   "BasePath": "_content/BatchPortal",
   "Mode": "Default",
@@ -72,6 +72,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/css/site.css"
+    },
+    {
+      "Identity": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/wwwroot/css/ux-polish.css",
+      "SourceId": "BatchPortal",
+      "SourceType": "Discovered",
+      "ContentRoot": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/wwwroot/",
+      "BasePath": "_content/BatchPortal",
+      "RelativePath": "css/ux-polish.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/css/ux-polish.css"
     },
     {
       "Identity": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/wwwroot/favicon.ico",

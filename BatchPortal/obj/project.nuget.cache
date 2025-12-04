@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "K1oDDp1HMYk=",
+  "dgSpecHash": "c1GcZJ80J2U=",
   "success": true,
   "projectFilePath": "/Users/mmoshrif/Documents/Doubleword/doubleword-batch-poc/BatchPortal/BatchPortal.csproj",
   "expectedPackageFiles": [
+    "/Users/mmoshrif/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.analyzers/3.3.4/microsoft.codeanalysis.analyzers.3.3.4.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.common/4.9.2/microsoft.codeanalysis.common.4.9.2.nupkg.sha512",
     "/Users/mmoshrif/.nuget/packages/microsoft.codeanalysis.csharp/4.9.2/microsoft.codeanalysis.csharp.4.9.2.nupkg.sha512",

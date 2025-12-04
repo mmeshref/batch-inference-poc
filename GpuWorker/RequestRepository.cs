@@ -36,12 +36,13 @@ public sealed class RequestRepository : IRequestRepository
 
             var nextRow = await db.Requests
                 .FromSqlRaw(@"
-                    SELECT *
-                    FROM requests
-                    WHERE ""Status"" = {0}
-                      AND ""GpuPool"" = {1}
-                    ORDER BY ""CreatedAt""
-                    FOR UPDATE SKIP LOCKED
+                    SELECT r.*
+                    FROM requests r
+                    INNER JOIN batches b ON r.""BatchId"" = b.""Id""
+                    WHERE r.""Status"" = {0}
+                      AND r.""GpuPool"" = {1}
+                    ORDER BY b.""Priority"" DESC, r.""CreatedAt"" ASC
+                    FOR UPDATE OF r SKIP LOCKED
                     LIMIT 1
                 ", RequestStatuses.Queued, gpuPool)
                 .AsNoTracking()
@@ -58,12 +59,14 @@ public sealed class RequestRepository : IRequestRepository
         }
 
         var fallback = await db.Requests
+            .Include(r => r.Batch)
             .Where(r => r.Status == RequestStatuses.Queued && r.GpuPool == gpuPool)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
         return fallback
-            .OrderBy(r => r.CreatedAt)
+            .OrderByDescending(r => r.Batch?.Priority ?? 0)
+            .ThenBy(r => r.CreatedAt)
             .FirstOrDefault();
     }
 

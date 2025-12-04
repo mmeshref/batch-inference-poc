@@ -22,5 +22,25 @@ public static class SchedulingLogic
 
         return currentPool;
     }
+
+    public static int ComputeDesiredSpotWorkerCount(int queuedSpotTasks)
+    {
+        if (queuedSpotTasks <= 0)
+        {
+            return 0;
+        }
+
+        return (int)Math.Ceiling(queuedSpotTasks / 5d);
+    }
+
+    public static int ComputeDesiredDedicatedWorkerCount(int queuedDedicatedTasks)
+    {
+        if (queuedDedicatedTasks <= 0)
+        {
+            return 0;
+        }
+
+        return (int)Math.Ceiling(queuedDedicatedTasks / 10d);
+    }
 }
 

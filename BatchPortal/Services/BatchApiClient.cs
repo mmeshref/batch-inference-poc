@@ -146,6 +146,31 @@ public sealed class BatchApiClient
         return batchResponse.Id.ToString();
     }
 
+    public async Task<bool> CancelBatchAsync(Guid batchId, string userId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(userId);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/batches/{batchId}/cancel");
+        request.Headers.TryAddWithoutValidation(UserIdHeader, userId);
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogWarning("Cannot cancel batch {BatchId}: {Reason}", batchId, body);
+            return false;
+        }
+
+        await EnsureSuccess(response);
+        return true;
+    }
+
     private async Task EnsureSuccess(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode)
