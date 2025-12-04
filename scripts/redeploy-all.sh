@@ -33,21 +33,6 @@ kubectl apply -n "${NAMESPACE}" -f k8s/postgres/postgres-service.yaml
 echo ">>> Waiting for Postgres to be ready..."
 kubectl rollout status deployment/postgres -n "${NAMESPACE}"
 
-echo ">>> Applying database migrations..."
-if [ -f "${SCRIPT_DIR}/apply-deduplication-migration-k8s.sh" ]; then
-  "${SCRIPT_DIR}/apply-deduplication-migration-k8s.sh" "${NAMESPACE}"
-else
-  echo ">>> Applying deduplication migration (inline)..."
-  # Get username from secret (defaults to "batch")
-  POSTGRES_USER=$(kubectl get secret postgres-secret -n "${NAMESPACE}" -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null || echo "batch")
-  kubectl exec -n "${NAMESPACE}" deployment/postgres -- psql -U "${POSTGRES_USER}" -d batchdb << 'SQL'
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
-SQL
-fi
-
 echo ">>> Deploying Prometheus and Alertmanager..."
 kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/prometheus-configmap.yaml
 kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/alert-rules.yaml
@@ -63,7 +48,7 @@ kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/grafana-dashboards.yaml
 kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/grafana-deployment.yaml
 kubectl apply -n "${NAMESPACE}" -f k8s/monitoring/grafana-service.yaml
 
-echo ">>> Deploying ApiGateway (will run migrations on startup)..."
+echo ">>> Deploying ApiGateway (will create schema on startup)..."
 kubectl apply -n "${NAMESPACE}" -f k8s/api/api-deployment.yaml
 kubectl apply -n "${NAMESPACE}" -f k8s/api/api-service.yaml
 API_IMAGE="dwb/api-gateway:${TAG}"
@@ -73,6 +58,36 @@ echo ">>> Updating ApiGateway deployment to ${API_IMAGE}"
 kubectl set image deployment/api-gateway api-gateway="${API_IMAGE}" -n "${NAMESPACE}" --record=false
 echo ">>> Waiting for ApiGateway rollout..."
 kubectl rollout status deployment/api-gateway -n "${NAMESPACE}"
+
+echo ">>> Waiting for ApiGateway to initialize database schema..."
+sleep 5
+
+echo ">>> Applying database migrations..."
+if [ -f "${SCRIPT_DIR}/apply-deduplication-migration-k8s.sh" ]; then
+  "${SCRIPT_DIR}/apply-deduplication-migration-k8s.sh" "${NAMESPACE}"
+else
+  echo ">>> Applying deduplication migration (inline)..."
+  # Get username from secret (defaults to "batch")
+  POSTGRES_USER=$(kubectl get secret postgres-secret -n "${NAMESPACE}" -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null || echo "batch")
+  kubectl exec -n "${NAMESPACE}" deployment/postgres -- psql -U "${POSTGRES_USER}" -d batchdb << 'SQL'
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'requests'
+    ) THEN
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
+        CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+        RAISE NOTICE 'Migration applied successfully!';
+    ELSE
+        RAISE NOTICE 'Skipping: requests table does not exist yet';
+    END IF;
+END $$;
+SQL
+fi
 
 echo ">>> Deploying Scheduler..."
 kubectl apply -n "${NAMESPACE}" -f k8s/scheduler/scheduler-deployment.yaml

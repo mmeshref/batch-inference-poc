@@ -265,11 +265,11 @@ Implements an OpenAI-like batch processing API with JSONL file upload, batch cre
 
 1. User uploads a JSONL file.
 2. ApiGateway stores the file and metadata in PostgreSQL.
-3. User creates a batch referencing the uploaded file.
+3. User creates a batch referencing the uploaded file, optionally specifying a priority level (Normal=1, Medium=5, High=10+).
 4. SchedulerService detects the queued batch.
-5. Scheduler splits the file into per-line `RequestEntity` rows with `Status = Queued` and the selected GPU pool (spot/dedicated).
+5. Scheduler splits the file into per-line `RequestEntity` rows with `Status = Queued` and initial GPU pool assignment (defaults to spot, escalated to dedicated based on SLA timing).
 6. Requests stay persisted in Postgres until a worker dequeues them.
-7. GPU workers repeatedly fetch queued requests for their pool, atomically marking them `Running` via `FOR UPDATE SKIP LOCKED`.
+7. GPU workers repeatedly fetch queued requests for their pool, ordered by **batch priority (highest first)**, then by creation time (oldest first), atomically marking them `Running` via `FOR UPDATE SKIP LOCKED`.
 8. Successful requests transition to `Completed`; terminal failures move to `Failed`; spot interruptions are re-queued.
 9. Batches finalize once every request is either `Completed` or `Failed`.
 10. Portal/API expose batch and request details plus outputs.
@@ -284,7 +284,7 @@ Implements an OpenAI-like batch processing API with JSONL file upload, batch cre
 - **Failed** – a terminal error occurred; the request will not be retried.
 - **DeadLettered** – reserved for future DLQ behaviour (not yet used in this POC).
 
-Postgres doubles as the durable queue. Workers select the oldest `Queued` row (ordered by `CreatedAt`) for their GPU pool using `FOR UPDATE SKIP LOCKED`, immediately flip it to `Running`, and commit the transaction so no other worker can double-claim it. This pattern provides safe multi-worker dequeue semantics without a separate message broker.
+Postgres doubles as the durable queue. Workers select queued requests for their GPU pool using `FOR UPDATE SKIP LOCKED`, ordered by **batch priority (highest first)**, then by `CreatedAt` (oldest first). This ensures high-priority batches are processed before lower-priority ones. Workers immediately flip the selected request to `Running` and commit the transaction so no other worker can double-claim it. This pattern provides safe multi-worker dequeue semantics without a separate message broker.
 
 ---
 
@@ -292,8 +292,8 @@ Postgres doubles as the durable queue. Workers select the oldest `Queued` row (o
 
 ```mermaid
 flowchart LR
-    A[User / Portal] -->|Upload file & create batch| B[Api Gateway]
-    B -->|Create batch| C[(Postgres: Batch & Request Store)]
+    A[User / Portal] -->|Upload file & create batch<br/>with priority (1/5/10+)| B[Api Gateway]
+    B -->|Create batch<br/>Priority stored| C[(Postgres: Batch & Request Store)]
 
     subgraph Queue["DB-backed queue (per GPU pool)"]
         C
@@ -324,10 +324,10 @@ flowchart LR
         end
     end
 
-    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| E1
-    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| E2
-    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| F1
-    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| F2
+    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| E1
+    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| E2
+    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| F1
+    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| F2
 
     E1 -->|Running → Completed/Failed| C
     E2 -->|Running → Completed/Failed| C
@@ -366,8 +366,8 @@ The following diagram shows the detailed lifecycle of a single request through t
 ```mermaid
 flowchart TD
     Start([User uploads JSONL file]) --> Upload[ApiGateway: Store file]
-    Upload --> CreateBatch[ApiGateway: Create batch]
-    CreateBatch --> BatchQueued[(Postgres: Batch Status = Queued)]
+    Upload --> CreateBatch[ApiGateway: Create batch<br/>with priority (1/5/10+)]
+    CreateBatch --> BatchQueued[(Postgres: Batch Status = Queued<br/>Priority stored)]
     
     BatchQueued --> SchedulerDetect[SchedulerService: Detects queued batch]
     SchedulerDetect --> ReadFile[Scheduler: Read file line by line]
@@ -393,7 +393,7 @@ flowchart TD
     NextLine -->|Yes| ForEachLine
     NextLine -->|No| BatchRunning[Batch Status = Running]
     
-    BatchRunning --> WorkerDequeue[GPU Worker: Dequeue request<br/>FOR UPDATE SKIP LOCKED<br/>Excludes IsDeduplicated = true]
+    BatchRunning --> WorkerDequeue[GPU Worker: Dequeue request<br/>ORDER BY Priority DESC, CreatedAt ASC<br/>FOR UPDATE SKIP LOCKED<br/>Excludes IsDeduplicated = true]
     WorkerDequeue --> CheckDequeue{Request<br/>dequeued?}
     
     CheckDequeue -->|No| WorkerIdle[Worker: Backoff & retry]
@@ -433,9 +433,10 @@ flowchart TD
 
 **Key Decision Points:**
 - **Deduplication Check:** Happens at request creation time. If duplicate found, request completes immediately without worker processing.
-- **Worker Dequeue:** Workers only dequeue non-deduplicated requests. Deduplicated requests are already Completed.
+- **Worker Dequeue:** Workers only dequeue non-deduplicated requests, ordered by batch priority (highest first), then by creation time (oldest first). Deduplicated requests are already Completed and are excluded from dequeue.
+- **Priority Ordering:** High-priority batches (priority 10+) are processed before medium (priority 5) and normal (priority 1) batches, regardless of creation time. Within the same priority level, older requests are processed first. Priority is independent of GPU pool selection - it only affects processing order, not cost optimization through spot/dedicated pool selection.
 - **Spot Interruption:** Spot workers may be interrupted, causing requeue to dedicated pool.
-- **Batch Finalization:** Only occurs when all requests (including deduplicated ones) are in final state.
+- **Batch Finalization:** Only occurs when all requests (including deduplicated ones) are in final state. If all requests are deduplicated, the batch is finalized immediately.
 
 ## Components
 
@@ -619,10 +620,16 @@ Each batch row shows status and GPU pool with badges, plus basic request counts 
 Batches can now be assigned a priority level (Normal = 1, Medium = 5, High = 10+). The system:
 - **UI:** Priority can be set during batch creation via a dropdown selector in the Create Batch form
 - Displays priority badges (Normal/Medium/High) in the batch list and details page with visual color coding
-- Workers dequeue requests ordered by batch priority (highest first), then by creation time
+- **Worker Dequeue Ordering:** Workers dequeue requests ordered by batch priority (highest first), then by creation time (oldest first)
 - Ensures high-priority workloads are processed before lower-priority ones when the queue is deep
+- **Independent of GPU Pool:** Priority only affects processing order, not GPU pool assignment. GPU pool is determined by SLA timing (spot workers escalate to dedicated when approaching deadline), not by priority level
 
-This allows users to designate critical batches either via the Portal UI or the `metadata.priority` field when creating a batch via API, ensuring they're fast-tracked through the system.
+**How it works:**
+- When workers pull requests from the queue, they use SQL: `ORDER BY b."Priority" DESC, r."CreatedAt" ASC`
+- This means a batch with priority 10 created 5 minutes ago will be processed before a batch with priority 1 created 1 hour ago
+- Priority is independent of GPU pool selection - high priority doesn't force dedicated pool, and low priority doesn't prevent escalation to dedicated when SLA requires it
+
+This allows users to designate critical batches either via the Portal UI or the `metadata.priority` field when creating a batch via API, ensuring they're fast-tracked through the system without affecting cost optimization through spot/dedicated pool selection.
 
 ##### Pagination
 

@@ -123,14 +123,8 @@ public sealed class BatchApiClient
         }
 
         var metadata = new Dictionary<string, string>();
-        if (priority >= 10)
-        {
-            metadata["priority"] = "high";
-        }
-        else if (priority >= 5)
-        {
-            metadata["priority"] = "medium";
-        }
+        // Send numeric priority value directly so GetPriority can parse it correctly
+        metadata["priority"] = priority.ToString();
 
         var payload = new CreateBatchPayload(
             inputGuid,

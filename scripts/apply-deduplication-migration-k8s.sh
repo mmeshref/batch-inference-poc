@@ -25,11 +25,22 @@ if [ -z "$POSTGRES_POD" ]; then
   echo ">>> Error: Could not find PostgreSQL pod in namespace ${NAMESPACE}"
   echo ">>> Attempting to use deployment/postgres instead..."
   kubectl exec -n "${NAMESPACE}" deployment/postgres -- psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" << 'SQL'
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
-SELECT 'Migration applied successfully!' as status;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'requests'
+    ) THEN
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
+        CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+        RAISE NOTICE 'Migration applied successfully!';
+    ELSE
+        RAISE NOTICE 'Skipping: requests table does not exist yet. Schema will be created by EF Core.';
+    END IF;
+END $$;
 SQL
 else
   echo ">>> Found PostgreSQL pod: ${POSTGRES_POD}"
@@ -42,11 +53,22 @@ else
     kubectl cp "${SCRIPT_DIR}/add-deduplication-columns.sql" "${NAMESPACE}/${POSTGRES_POD}:/tmp/migration.sql" || {
       echo ">>> File copy failed, applying migration directly..."
       kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" << 'SQL'
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
-SELECT 'Migration applied successfully!' as status;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'requests'
+    ) THEN
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
+        CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+        RAISE NOTICE 'Migration applied successfully!';
+    ELSE
+        RAISE NOTICE 'Skipping: requests table does not exist yet. Schema will be created by EF Core.';
+    END IF;
+END $$;
 SQL
       exit 0
     }
@@ -56,11 +78,22 @@ SQL
   else
     echo ">>> Migration file not found, applying migration directly..."
     kubectl exec -n "${NAMESPACE}" "${POSTGRES_POD}" -- psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" << 'SQL'
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
-SELECT 'Migration applied successfully!' as status;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'requests'
+    ) THEN
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
+        CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+        RAISE NOTICE 'Migration applied successfully!';
+    ELSE
+        RAISE NOTICE 'Skipping: requests table does not exist yet. Schema will be created by EF Core.';
+    END IF;
+END $$;
 SQL
   fi
 fi

@@ -22,10 +22,22 @@ else
   # Get username from secret (defaults to "batch")
   POSTGRES_USER=$(kubectl get secret postgres-secret -n "${NAMESPACE}" -o jsonpath='{.data.username}' 2>/dev/null | base64 -d 2>/dev/null || echo "batch")
   kubectl exec -n "${NAMESPACE}" deployment/postgres -- psql -U "${POSTGRES_USER}" -d batchdb << 'SQL'
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
-ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'requests'
+    ) THEN
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "InputHash" TEXT;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "OriginalRequestId" UUID;
+        ALTER TABLE requests ADD COLUMN IF NOT EXISTS "IsDeduplicated" BOOLEAN NOT NULL DEFAULT false;
+        CREATE INDEX IF NOT EXISTS "IX_requests_InputHash" ON requests ("InputHash");
+        RAISE NOTICE 'Migration applied successfully!';
+    ELSE
+        RAISE NOTICE 'Skipping: requests table does not exist yet. Schema will be created by EF Core.';
+    END IF;
+END $$;
 SQL
 fi
 

@@ -70,11 +70,11 @@ public sealed class IndexModel : PageModel
 
         // Calculate filter counts (before applying filters)
         StatusCounts["All"] = await baseQuery.CountAsync(cancellationToken);
-        StatusCounts["Queued"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Queued, cancellationToken);
-        StatusCounts["Running"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Running, cancellationToken);
-        StatusCounts["Completed"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Completed, cancellationToken);
-        StatusCounts["Failed"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Failed, cancellationToken);
-        StatusCounts["Cancelled"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Cancelled, cancellationToken);
+        StatusCounts["Queued"] = await baseQuery.CountAsync(b => b.Status.ToLower() == "queued", cancellationToken);
+        StatusCounts["Running"] = await baseQuery.CountAsync(b => b.Status.ToLower() == "running", cancellationToken);
+        StatusCounts["Completed"] = await baseQuery.CountAsync(b => b.Status.ToLower() == "completed", cancellationToken);
+        StatusCounts["Failed"] = await baseQuery.CountAsync(b => b.Status.ToLower() == "failed", cancellationToken);
+        StatusCounts["Cancelled"] = await baseQuery.CountAsync(b => b.Status.ToLower() == "cancelled", cancellationToken);
 
         PoolCounts["All"] = await baseQuery.CountAsync(cancellationToken);
         PoolCounts["spot"] = await baseQuery.CountAsync(b => b.GpuPool == GpuPools.Spot, cancellationToken);
@@ -84,7 +84,8 @@ public sealed class IndexModel : PageModel
         var status = (Status ?? "All").Trim();
         if (!string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(status))
         {
-            query = query.Where(b => b.Status == status);
+            var statusLower = status.ToLower();
+            query = query.Where(b => b.Status.ToLower() == statusLower);
         }
 
         var pool = (Pool ?? "All").Trim();

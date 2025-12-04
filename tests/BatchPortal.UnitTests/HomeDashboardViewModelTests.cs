@@ -49,6 +49,74 @@ public class HomeDashboardViewModelTests
         Assert.True(breachedItem.IsSlaBreached);
     }
 
+    [Fact]
+    public void BuildDashboard_HandlesLowercaseBatchStatuses()
+    {
+        // This test ensures that batch statuses stored as lowercase strings ("queued", "running", "completed", "failed")
+        // are correctly counted, preventing the bug where case-sensitive comparisons failed.
+        var now = new DateTimeOffset(new DateTime(2025, 1, 10, 12, 0, 0, DateTimeKind.Utc));
+        var batches = new List<BatchEntity>
+        {
+            CreateBatch("completed", now.AddHours(-1), completedHoursAfterCreate: 0.5), // lowercase "completed"
+            CreateBatch("COMPLETED", now.AddHours(-2), completedHoursAfterCreate: 0.5), // uppercase (should still work)
+            CreateBatch("failed", now.AddHours(-3), completedHoursAfterCreate: 0.5), // lowercase "failed"
+            CreateBatch("queued", now.AddHours(-4)), // lowercase "queued"
+            CreateBatch("running", now.AddHours(-5)), // lowercase "running"
+            CreateBatch("cancelled", now.AddHours(-6), completedHoursAfterCreate: 0.5), // lowercase "cancelled"
+        };
+
+        var dashboard = IndexModel.BuildDashboard(batches, now);
+
+        // Should count all completed batches (both lowercase and uppercase) within 24h window
+        Assert.Equal(2, dashboard.CompletedLast24h);
+        
+        // Should count failed batches within 24h window
+        Assert.Equal(1, dashboard.FailedLast24h);
+        
+        // Should count queued and running batches (case-insensitive)
+        Assert.Equal(2, dashboard.InProgress);
+        
+        // Total should be all batches
+        Assert.Equal(6, dashboard.TotalBatches);
+    }
+
+    [Fact]
+    public void BuildDashboard_HandlesCaseInsensitiveStatusComparison()
+    {
+        // This test specifically verifies that case-insensitive comparison works correctly
+        // for all batch status types, preventing regression of the case-sensitivity bug.
+        var now = new DateTimeOffset(new DateTime(2025, 1, 10, 12, 0, 0, DateTimeKind.Utc));
+        
+        // Test with various case combinations
+        var batches = new List<BatchEntity>
+        {
+            CreateBatch("queued", now.AddHours(-1)),
+            CreateBatch("QUEUED", now.AddHours(-2)),
+            CreateBatch("Queued", now.AddHours(-3)),
+            CreateBatch("running", now.AddHours(-4)),
+            CreateBatch("RUNNING", now.AddHours(-5)),
+            CreateBatch("Running", now.AddHours(-6)),
+            CreateBatch("completed", now.AddHours(-7), completedHoursAfterCreate: 0.5),
+            CreateBatch("COMPLETED", now.AddHours(-8), completedHoursAfterCreate: 0.5),
+            CreateBatch("Completed", now.AddHours(-9), completedHoursAfterCreate: 0.5),
+            CreateBatch("failed", now.AddHours(-10), completedHoursAfterCreate: 0.5),
+            CreateBatch("FAILED", now.AddHours(-11), completedHoursAfterCreate: 0.5),
+            CreateBatch("Failed", now.AddHours(-12), completedHoursAfterCreate: 0.5),
+        };
+
+        var dashboard = IndexModel.BuildDashboard(batches, now);
+
+        // All queued batches (regardless of case) should be counted as in progress
+        // All running batches (regardless of case) should be counted as in progress
+        Assert.Equal(6, dashboard.InProgress); // 3 queued + 3 running
+        
+        // All completed batches (regardless of case) within 24h should be counted
+        Assert.Equal(3, dashboard.CompletedLast24h);
+        
+        // All failed batches (regardless of case) within 24h should be counted
+        Assert.Equal(3, dashboard.FailedLast24h);
+    }
+
     private static BatchEntity CreateBatch(string status, DateTimeOffset createdAt, double? completedHoursAfterCreate = null)
     {
         return new BatchEntity

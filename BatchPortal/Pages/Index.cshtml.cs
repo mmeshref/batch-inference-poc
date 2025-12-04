@@ -60,11 +60,16 @@ public class IndexModel : PageModel
 
         var totalBatches = batchList.Count;
         var completedLast24h = batchList.Count(b =>
-            b.Status == RequestStatuses.Completed && b.CompletedAt.HasValue && b.CompletedAt.Value >= windowStart);
+            b.Status.ToLower() == "completed" && 
+            b.CompletedAt.HasValue && 
+            b.CompletedAt.Value >= windowStart);
         var failedLast24h = batchList.Count(b =>
-            b.Status == RequestStatuses.Failed && b.CompletedAt.HasValue && b.CompletedAt.Value >= windowStart);
+            b.Status.ToLower() == "failed" && 
+            b.CompletedAt.HasValue && 
+            b.CompletedAt.Value >= windowStart);
         var inProgress = batchList.Count(b =>
-            b.Status == RequestStatuses.Queued || b.Status == RequestStatuses.Running);
+            b.Status.ToLower() == "queued" || 
+            b.Status.ToLower() == "running");
 
         var recentItems = batchList
             .OrderByDescending(b => b.CreatedAt)

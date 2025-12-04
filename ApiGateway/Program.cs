@@ -402,26 +402,41 @@ static bool TryGetUserId(HttpRequest request, out string userId, out IResult? er
 
 static string GetGpuPool(Dictionary<string, string>? metadata)
 {
+    // Allow explicit GPU pool selection via metadata
     if (metadata is not null &&
-        metadata.TryGetValue("priority", out var priorityValue) &&
-        string.Equals(priorityValue, "high", StringComparison.OrdinalIgnoreCase))
+        metadata.TryGetValue("gpuPool", out var gpuPoolValue) &&
+        (string.Equals(gpuPoolValue, "spot", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(gpuPoolValue, "dedicated", StringComparison.OrdinalIgnoreCase)))
     {
-        return "dedicated";
+        return gpuPoolValue.ToLower();
     }
 
+    // Default to spot - GPU pool will be determined by SLA timing in the scheduler
     return "spot";
 }
 
 static int GetPriority(Dictionary<string, string>? metadata)
 {
-    if (metadata is not null &&
-        metadata.TryGetValue("priority", out var priorityValue) &&
-        string.Equals(priorityValue, "high", StringComparison.OrdinalIgnoreCase))
+    if (metadata is not null && metadata.TryGetValue("priority", out var priorityValue))
     {
-        return 10;
+        // Handle string priority values (backward compatibility)
+        if (string.Equals(priorityValue, "high", StringComparison.OrdinalIgnoreCase))
+        {
+            return 10;
+        }
+        if (string.Equals(priorityValue, "medium", StringComparison.OrdinalIgnoreCase))
+        {
+            return 5;
+        }
+        
+        // Handle numeric priority values (from portal)
+        if (int.TryParse(priorityValue, out var numericPriority))
+        {
+            return numericPriority;
+        }
     }
 
-    return 1;
+    return 1; // Default: Normal priority
 }
 
 static TimeSpan ParseCompletionWindow(string? input)

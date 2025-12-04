@@ -25,8 +25,12 @@
         <div class="d-flex align-items-center gap-2">
             <span id="last-updated" class="text-muted small" style="display: none;"></span>
             <div class="form-check form-switch">
+                @{
+                    var statusLower = (Model.Batch.Status?.ToLower() ?? "");
+                    var canAutoRefresh = statusLower == "queued" || statusLower == "running";
+                }
                 <input class="form-check-input" type="checkbox" id="auto-refresh-toggle" 
-                       @(Model.Batch.Status == "Queued" || Model.Batch.Status == "Running" ? "" : "disabled")>
+                       @(canAutoRefresh ? "" : "disabled")>
                 <label class="form-check-label" for="auto-refresh-toggle">
                     <i class="bi bi-arrow-clockwise me-1"></i>Auto-refresh
                 </label>
@@ -643,7 +647,11 @@ else
             });
             
             // Auto-enable if batch is in progress
-            @if (Model.Batch.Status == "Queued" || Model.Batch.Status == "Running")
+            @{
+                var statusLowerForJs = (Model.Batch.Status?.ToLower() ?? "");
+                var shouldAutoEnable = statusLowerForJs == "queued" || statusLowerForJs == "running";
+            }
+            @if (shouldAutoEnable)
             {
                 <text>
                 toggle.checked = true;
