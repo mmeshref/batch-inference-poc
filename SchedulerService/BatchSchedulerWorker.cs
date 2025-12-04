@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,7 +93,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
         }
     }
 
-    private async Task ProcessSingleBatchAsync(BatchDbContext db, BatchEntity batch, CancellationToken cancellationToken)
+    internal async Task ProcessSingleBatchAsync(BatchDbContext db, BatchEntity batch, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing queued batch {BatchId}", batch.Id);
 
@@ -204,6 +205,10 @@ public sealed class BatchSchedulerWorker : BackgroundService
         await db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Batch {BatchId} moved to running with {Count} requests", batch.Id, lineNumber);
+
+        // Check if all requests are already completed (e.g., all deduplicated)
+        // If so, finalize the batch immediately
+        await TryFinalizeBatchIfAllCompletedAsync(db, batch.Id, cancellationToken);
     }
 
     private async Task EscalatePendingRequestsAsync(CancellationToken cancellationToken)
@@ -321,6 +326,87 @@ public sealed class BatchSchedulerWorker : BackgroundService
 
             yield return line;
         }
+    }
+
+    internal async Task TryFinalizeBatchIfAllCompletedAsync(
+        BatchDbContext db,
+        Guid batchId,
+        CancellationToken cancellationToken)
+    {
+        var batch = await db.Batches.FirstOrDefaultAsync(b => b.Id == batchId, cancellationToken);
+        if (batch is null || batch.OutputFileId.HasValue)
+        {
+            return;
+        }
+
+        // Check if there are any queued or running requests
+        var remaining = await db.Requests
+            .Where(r => r.BatchId == batchId && (r.Status == RequestStatuses.Queued || r.Status == RequestStatuses.Running))
+            .CountAsync(cancellationToken);
+
+        // If there are still pending requests, don't finalize yet
+        if (remaining > 0)
+        {
+            return;
+        }
+
+        // All requests are completed - finalize the batch
+        var failed = await db.Requests
+            .Where(r => r.BatchId == batchId && r.Status == RequestStatuses.Failed)
+            .CountAsync(cancellationToken);
+
+        var basePath = _configuration["Storage:BasePath"] ?? "/tmp/dwb-files";
+        Directory.CreateDirectory(basePath);
+
+        var outputFileId = Guid.NewGuid();
+        var outputFileName = $"output-{batchId}.jsonl";
+        var outputPath = Path.Combine(basePath, outputFileName);
+
+        var requests = await db.Requests
+            .Where(r => r.BatchId == batchId)
+            .OrderBy(r => r.LineNumber)
+            .ToListAsync(cancellationToken);
+
+        await using (var stream = new FileStream(outputPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var writer = new StreamWriter(stream))
+        {
+            foreach (var r in requests)
+            {
+                var line = r.OutputPayload ?? JsonSerializer.Serialize(new
+                {
+                    error = r.ErrorMessage ?? "no output",
+                    status = r.Status,
+                    line_number = r.LineNumber
+                });
+
+                await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+            }
+        }
+
+        var fileEntity = new FileEntity
+        {
+            Id = outputFileId,
+            UserId = batch.UserId,
+            Filename = outputFileName,
+            StoragePath = outputPath,
+            Purpose = "batch-output",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        await db.Files.AddAsync(fileEntity, cancellationToken);
+
+        batch.OutputFileId = outputFileId;
+        batch.CompletedAt = DateTimeOffset.UtcNow;
+        batch.Status = failed > 0 ? "failed" : "completed";
+        batch.ErrorMessage = failed > 0 ? "One or more requests failed" : null;
+
+        await db.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Finalized batch {BatchId} with status {Status} (all requests completed immediately, e.g., via deduplication). Output file {OutputFileId}",
+            batchId,
+            batch.Status,
+            outputFileId);
     }
 }
 
