@@ -292,8 +292,8 @@ Postgres doubles as the durable queue. Workers select queued requests for their 
 
 ```mermaid
 flowchart LR
-    A[User / Portal] -->|Upload file & create batch with priority (1/5/10+)| B[Api Gateway]
-    B -->|Create batch - Priority stored| C[(Postgres: Batch & Request Store)]
+    A[User / Portal] -->|"Upload file & create batch with priority 1/5/10+"| B[Api Gateway]
+    B -->|"Create batch - Priority stored"| C[(Postgres: Batch & Request Store)]
 
     subgraph Queue["DB-backed queue (per GPU pool)"]
         C
