@@ -292,8 +292,8 @@ Postgres doubles as the durable queue. Workers select queued requests for their 
 
 ```mermaid
 flowchart LR
-    A[User / Portal] -->|Upload file & create batch<br/>with priority (1/5/10+)| B[Api Gateway]
-    B -->|Create batch<br/>Priority stored| C[(Postgres: Batch & Request Store)]
+    A[User / Portal] -->|Upload file & create batch with priority (1/5/10+)| B[Api Gateway]
+    B -->|Create batch - Priority stored| C[(Postgres: Batch & Request Store)]
 
     subgraph Queue["DB-backed queue (per GPU pool)"]
         C
@@ -304,7 +304,7 @@ flowchart LR
     DD -->|Query by InputHash| C
     DD -.->|If duplicate found| D
     D -->|Assign GPU pool & SLA decisions| C
-    D --> WS[WorkerScaler<br/>Desired spot/ded counts]
+    D --> WS["WorkerScaler - Desired spot/ded counts"]
 
     subgraph SpotWorkers["GPU Worker Pool - Spot"]
         subgraph SP1["WorkerPullLoop + BackoffStrategy"]
@@ -324,10 +324,10 @@ flowchart LR
         end
     end
 
-    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| E1
-    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| E2
-    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| F1
-    C -->|Dequeue: ORDER BY Priority DESC, CreatedAt ASC<br/>SKIP LOCKED, Excludes deduplicated| F2
+    C -->|"Dequeue: ORDER BY Priority DESC, CreatedAt ASC - SKIP LOCKED, Excludes deduplicated"| E1
+    C -->|"Dequeue: ORDER BY Priority DESC, CreatedAt ASC - SKIP LOCKED, Excludes deduplicated"| E2
+    C -->|"Dequeue: ORDER BY Priority DESC, CreatedAt ASC - SKIP LOCKED, Excludes deduplicated"| F1
+    C -->|"Dequeue: ORDER BY Priority DESC, CreatedAt ASC - SKIP LOCKED, Excludes deduplicated"| F2
 
     E1 -->|Running → Completed/Failed| C
     E2 -->|Running → Completed/Failed| C
@@ -366,57 +366,57 @@ The following diagram shows the detailed lifecycle of a single request through t
 ```mermaid
 flowchart TD
     Start([User uploads JSONL file]) --> Upload[ApiGateway: Store file]
-    Upload --> CreateBatch[ApiGateway: Create batch<br/>with priority (1/5/10+)]
-    CreateBatch --> BatchQueued[(Postgres: Batch Status = Queued<br/>Priority stored)]
+    Upload --> CreateBatch["ApiGateway: Create batch with priority (1/5/10+)"]
+    CreateBatch --> BatchQueued[("Postgres: Batch Status = Queued - Priority stored")]
     
     BatchQueued --> SchedulerDetect[SchedulerService: Detects queued batch]
     SchedulerDetect --> ReadFile[Scheduler: Read file line by line]
     
     ReadFile --> ForEachLine{For each line}
     
-    ForEachLine --> ComputeHash[Compute InputHash<br/>SHA256 of normalized JSON]
-    ComputeHash --> CheckDup{DeduplicationService:<br/>Check for duplicate}
+    ForEachLine --> ComputeHash["Compute InputHash - SHA256 of normalized JSON"]
+    ComputeHash --> CheckDup{"DeduplicationService: Check for duplicate"}
     
     CheckDup -->|Query by InputHash| DBQuery[(Postgres: Query completed requests)]
     DBQuery -->|Found duplicate| DuplicateFound[Duplicate found]
     DBQuery -->|No duplicate| NoDuplicate[No duplicate found]
     
     DuplicateFound --> CopyOutput[Copy output from original request]
-    CopyOutput --> MarkDedup[Create RequestEntity:<br/>Status = Completed<br/>IsDeduplicated = true<br/>OriginalRequestId = original.Id]
+    CopyOutput --> MarkDedup["Create RequestEntity: Status = Completed, IsDeduplicated = true, OriginalRequestId = original.Id"]
     MarkDedup --> SaveDedup[(Postgres: Save deduplicated request)]
     SaveDedup --> NextLine{More lines?}
     
-    NoDuplicate --> CreateRequest[Create RequestEntity:<br/>Status = Queued<br/>InputHash = hash<br/>GpuPool = spot/dedicated]
+    NoDuplicate --> CreateRequest["Create RequestEntity: Status = Queued, InputHash = hash, GpuPool = spot/dedicated"]
     CreateRequest --> SaveQueued[(Postgres: Save queued request)]
     SaveQueued --> NextLine
     
     NextLine -->|Yes| ForEachLine
     NextLine -->|No| BatchRunning[Batch Status = Running]
     
-    BatchRunning --> WorkerDequeue[GPU Worker: Dequeue request<br/>ORDER BY Priority DESC, CreatedAt ASC<br/>FOR UPDATE SKIP LOCKED<br/>Excludes IsDeduplicated = true]
-    WorkerDequeue --> CheckDequeue{Request<br/>dequeued?}
+    BatchRunning --> WorkerDequeue["GPU Worker: Dequeue request - ORDER BY Priority DESC, CreatedAt ASC - FOR UPDATE SKIP LOCKED - Excludes IsDeduplicated = true"]
+    WorkerDequeue --> CheckDequeue{"Request dequeued?"}
     
     CheckDequeue -->|No| WorkerIdle[Worker: Backoff & retry]
     WorkerIdle --> WorkerDequeue
     
-    CheckDequeue -->|Yes| MarkRunning[Mark Status = Running<br/>Set StartedAt<br/>Set AssignedWorker]
-    MarkRunning --> Process[Worker: Process request<br/>Simulate GPU inference]
+    CheckDequeue -->|Yes| MarkRunning["Mark Status = Running, Set StartedAt, Set AssignedWorker"]
+    MarkRunning --> Process["Worker: Process request - Simulate GPU inference"]
     
-    Process --> CheckInterrupt{Spot<br/>interruption?}
+    Process --> CheckInterrupt{"Spot interruption?"}
     
-    CheckInterrupt -->|Yes| RequeueDedicated[Requeue to Dedicated pool<br/>Status = Queued<br/>Increment retry count]
+    CheckInterrupt -->|Yes| RequeueDedicated["Requeue to Dedicated pool - Status = Queued - Increment retry count"]
     RequeueDedicated --> WorkerDequeue
     
-    CheckInterrupt -->|No| CheckSuccess{Processing<br/>successful?}
+    CheckInterrupt -->|No| CheckSuccess{"Processing successful?"}
     
-    CheckSuccess -->|Yes| MarkCompleted[Mark Status = Completed<br/>Set OutputPayload<br/>Set CompletedAt]
-    CheckSuccess -->|No| MarkFailed[Mark Status = Failed<br/>Set ErrorMessage<br/>Set CompletedAt]
+    CheckSuccess -->|Yes| MarkCompleted["Mark Status = Completed, Set OutputPayload, Set CompletedAt"]
+    CheckSuccess -->|No| MarkFailed["Mark Status = Failed, Set ErrorMessage, Set CompletedAt"]
     
-    MarkCompleted --> CheckBatch{All requests<br/>completed/failed?}
+    MarkCompleted --> CheckBatch{"All requests completed/failed?"}
     MarkFailed --> CheckBatch
     
     CheckBatch -->|No| WorkerDequeue
-    CheckBatch -->|Yes| FinalizeBatch[Finalize batch:<br/>Create output JSONL file<br/>Set Batch Status = Completed/Failed]
+    CheckBatch -->|Yes| FinalizeBatch["Finalize batch: Create output JSONL file, Set Batch Status = Completed/Failed"]
     FinalizeBatch --> BatchComplete[(Postgres: Batch complete)]
     
     SaveDedup --> BatchComplete
