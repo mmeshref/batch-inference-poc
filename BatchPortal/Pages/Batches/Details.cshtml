@@ -283,7 +283,15 @@ else
                 var collapseId = $"req-{request.Id}";
                 <tr>
                     <td class="text-monospace">@request.LineNumber</td>
-                    <td>@await Html.PartialAsync("Components/Ui/StatusBadge", request.Status)</td>
+                    <td>
+                        @await Html.PartialAsync("Components/Ui/StatusBadge", request.Status)
+                        @if (request.IsDeduplicated)
+                        {
+                            <span class="badge bg-info text-white ms-1" title="This request was deduplicated from a previous request">
+                                <i class="bi bi-copy me-1"></i>Deduplicated
+                            </span>
+                        }
+                    </td>
                     <td>@request.DurationDisplay</td>
                     <td>
                         @await Html.PartialAsync("Components/Ui/GpuPoolBadge", request.GpuPool)
@@ -346,6 +354,26 @@ else
                                     <pre class="bg-light p-2 mb-0"><code id="output-@request.Id" class="language-json">@(!string.IsNullOrWhiteSpace(request.OutputPayload) ? request.OutputPayload : "-")</code></pre>
                                 </div>
                             </div>
+                            @if (request.IsDeduplicated && request.OriginalRequestId.HasValue)
+                            {
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="alert alert-info mb-0">
+                                            <h6 class="alert-heading mb-2">
+                                                <i class="bi bi-copy me-2"></i>Deduplicated Request
+                                            </h6>
+                                            <p class="mb-0">
+                                                This request was automatically deduplicated from a previous request with the same input.
+                                                The output was copied from the original request to avoid redundant processing.
+                                            </p>
+                                            <p class="mb-0 mt-2">
+                                                <strong>Original Request ID:</strong> 
+                                                <code class="text-dark">@request.OriginalRequestId.Value</code>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
                             @if (!string.IsNullOrWhiteSpace(request.ErrorMessage))
                             {
                                 <div class="row mb-3">

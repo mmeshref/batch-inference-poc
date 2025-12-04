@@ -64,7 +64,9 @@ internal static class BatchDetailsMapper
                     InputPayload = r.InputPayload,
                     OutputPayload = r.OutputPayload,
                     Notes = r.ErrorMessage,
-                    GpuPoolHistory = history
+                    GpuPoolHistory = history,
+                    IsDeduplicated = r.IsDeduplicated,
+                    OriginalRequestId = r.OriginalRequestId
                 };
             })
             .ToList();

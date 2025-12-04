@@ -62,6 +62,11 @@ public sealed class RequestEntity
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
     public string? ErrorMessage { get; set; }
+    
+    // Deduplication fields
+    public string? InputHash { get; set; }
+    public Guid? OriginalRequestId { get; set; }
+    public bool IsDeduplicated { get; set; }
 
     public BatchEntity? Batch { get; set; }
 }
@@ -131,6 +136,11 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
         entity.Property(r => r.Status).IsRequired();
         entity.Property(r => r.GpuPool).IsRequired();
         entity.Property(r => r.CreatedAt).IsRequired();
+        entity.Property(r => r.IsDeduplicated).HasDefaultValue(false);
+
+        // Index for deduplication lookups
+        entity.HasIndex(r => r.InputHash)
+              .HasDatabaseName("IX_requests_InputHash");
 
         entity.HasOne(r => r.Batch)
               .WithMany(b => b.Requests)

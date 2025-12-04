@@ -71,6 +71,39 @@ public class BatchDetailsMapperTests
         Assert.NotEmpty(result.InterruptionNotes);
     }
 
+    [Fact]
+    public void Map_ShouldMapDeduplicationFields()
+    {
+        var originalRequestId = Guid.NewGuid();
+        var requests = new List<RequestEntity>
+        {
+            new RequestEntity
+            {
+                Id = Guid.NewGuid(),
+                BatchId = Guid.NewGuid(),
+                LineNumber = 1,
+                InputPayload = "{\"text\":\"hello\"}",
+                OutputPayload = "{\"result\":\"processed\"}",
+                Status = RequestStatuses.Completed,
+                GpuPool = GpuPools.Spot,
+                CreatedAt = DateTimeOffset.UtcNow,
+                CompletedAt = DateTimeOffset.UtcNow,
+                IsDeduplicated = true,
+                OriginalRequestId = originalRequestId,
+                InputHash = "test-hash-123"
+            }
+        };
+
+        var batch = BuildBatch(24, 10, requests);
+
+        var result = BatchDetailsMapper.Map(batch);
+
+        Assert.Single(result.Requests);
+        var request = result.Requests[0];
+        Assert.True(request.IsDeduplicated);
+        Assert.Equal(originalRequestId, request.OriginalRequestId);
+    }
+
     private static BatchEntity BuildBatch(double completionWindowHours, double completedHours, List<RequestEntity>? requests = null)
     {
         var createdAt = DateTimeOffset.UtcNow;

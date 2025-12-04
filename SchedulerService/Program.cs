@@ -19,6 +19,11 @@ var connectionString = builder.Configuration.GetConnectionString("Postgres")
 builder.Services.AddDbContext<BatchDbContext>(options =>
     options.UseNpgsql(connectionString));
 
+builder.Services.AddDbContextFactory<BatchDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+builder.Services.AddScoped<IDeduplicationService, DeduplicationService>();
+
 builder.Services.AddHostedService<BatchSchedulerWorker>();
 
 var host = builder.Build();

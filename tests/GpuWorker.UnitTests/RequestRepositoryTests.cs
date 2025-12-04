@@ -79,6 +79,87 @@ public class RequestRepositoryTests
         result.Status.Should().Be(RequestStatuses.Queued);
     }
 
+    [Fact]
+    public async Task DequeueAsync_Should_ExcludeDeduplicatedRequests()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<BatchDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        var factory = new TestDbContextFactory(options);
+
+        await using (var db = factory.CreateDbContext())
+        {
+            db.Database.EnsureCreated();
+
+            var batchId = Guid.NewGuid();
+            var inputFileId = Guid.NewGuid();
+
+            db.Files.Add(new FileEntity
+            {
+                Id = inputFileId,
+                UserId = "user",
+                Filename = "input.jsonl",
+                StoragePath = "/tmp/input.jsonl",
+                Purpose = "batch",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            db.Batches.Add(new BatchEntity
+            {
+                Id = batchId,
+                UserId = "user",
+                InputFileId = inputFileId,
+                Status = "running",
+                Endpoint = "test-endpoint",
+                CompletionWindow = TimeSpan.FromHours(24),
+                Priority = 1,
+                GpuPool = GpuPools.Spot,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            // Add a deduplicated request (should be excluded)
+            db.Requests.Add(new RequestEntity
+            {
+                Id = Guid.NewGuid(),
+                BatchId = batchId,
+                LineNumber = 1,
+                InputPayload = "{}",
+                Status = RequestStatuses.Queued,
+                GpuPool = GpuPools.Spot,
+                IsDeduplicated = true,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            // Add a normal queued request (should be returned)
+            db.Requests.Add(new RequestEntity
+            {
+                Id = Guid.NewGuid(),
+                BatchId = batchId,
+                LineNumber = 2,
+                InputPayload = "{\"text\":\"test\"}",
+                Status = RequestStatuses.Queued,
+                GpuPool = GpuPools.Spot,
+                IsDeduplicated = false,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+        }
+
+        var config = new ConfigurationBuilder().Build();
+        var repo = new RequestRepository(factory, config, NullLogger<RequestRepository>.Instance);
+
+        var result = await repo.DequeueAsync(GpuPools.Spot, CancellationToken.None);
+
+        result.Should().NotBeNull();
+        result!.IsDeduplicated.Should().BeFalse();
+        result.InputPayload.Should().Be("{\"text\":\"test\"}");
+    }
+
     private sealed class TestDbContextFactory : IDbContextFactory<BatchDbContext>
     {
         private readonly DbContextOptions<BatchDbContext> _options;

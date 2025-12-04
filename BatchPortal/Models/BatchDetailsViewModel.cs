@@ -46,6 +46,10 @@ public sealed class BatchDetailsViewModel
         public string? OutputPayload { get; set; }
         public string? Notes { get; set; }
         public IReadOnlyList<GpuPoolHistoryEntry> GpuPoolHistory { get; set; } = Array.Empty<GpuPoolHistoryEntry>();
+        
+        // Deduplication fields
+        public bool IsDeduplicated { get; set; }
+        public Guid? OriginalRequestId { get; set; }
     }
 
     public sealed class InterruptionNote

@@ -25,6 +25,9 @@ public sealed class BatchSchedulerWorker : BackgroundService
     private static readonly Counter BatchesFailed = Metrics
     .CreateCounter("batch_scheduler_batches_failed_total", "Batches that failed in scheduler.");
 
+    private static readonly Counter RequestsDeduplicated = Metrics
+        .CreateCounter("batch_scheduler_requests_deduplicated_total", "Requests that were deduplicated (skipped processing).");
+
 
     public BatchSchedulerWorker(
         IServiceProvider services,
@@ -133,6 +136,10 @@ public sealed class BatchSchedulerWorker : BackgroundService
             batch.GpuPool = "dedicated";
         }
 
+        // Get deduplication service from DI
+        var deduplicationService = _services.GetRequiredService<IDeduplicationService>();
+        var deduplicatedCount = 0;
+
         await foreach (var line in ReadLinesAsync(file.StoragePath, cancellationToken))
         {
             if (string.IsNullOrWhiteSpace(line))
@@ -141,21 +148,53 @@ public sealed class BatchSchedulerWorker : BackgroundService
                 continue;
             }
 
+            // Compute hash for deduplication
+            var inputHash = deduplicationService.ComputeInputHash(line);
+            
+            // Check for duplicate
+            var duplicate = await deduplicationService.FindDuplicateAsync(inputHash, batch.UserId, cancellationToken);
+
             var request = new RequestEntity
             {
                 Id = Guid.NewGuid(),
                 BatchId = batch.Id,
                 LineNumber = lineNumber,
                 InputPayload = line,
-                OutputPayload = null,
-                Status = RequestStatuses.Queued,
+                OutputPayload = duplicate?.OutputPayload, // Copy output if duplicate found
+                Status = duplicate != null ? RequestStatuses.Completed : RequestStatuses.Queued,
                 GpuPool = initialPool,
                 AssignedWorker = null,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
+                InputHash = inputHash,
+                OriginalRequestId = duplicate?.Id,
+                IsDeduplicated = duplicate != null
             };
+
+            if (duplicate != null)
+            {
+                // Mark as completed immediately with copied output
+                request.CompletedAt = DateTimeOffset.UtcNow;
+                request.StartedAt = DateTimeOffset.UtcNow; // Set started time for consistency
+                deduplicatedCount++;
+                RequestsDeduplicated.Inc();
+                
+                _logger.LogDebug(
+                    "Request {RequestId} deduplicated from original {OriginalRequestId}",
+                    request.Id,
+                    duplicate.Id);
+            }
 
             await db.Requests.AddAsync(request, cancellationToken);
             lineNumber++;
+        }
+
+        if (deduplicatedCount > 0)
+        {
+            _logger.LogInformation(
+                "Batch {BatchId}: {DeduplicatedCount} of {TotalCount} requests were deduplicated",
+                batch.Id,
+                deduplicatedCount,
+                lineNumber);
         }
 
         batch.Status = "running";

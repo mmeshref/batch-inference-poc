@@ -178,6 +178,14 @@ Example:
 dotnet test
 ```
 
+The test suite includes:
+- **Unit tests** for business logic, services, and view models
+- **Schema validation tests** (`DatabaseSchemaTests`) that verify the database schema matches the entity model
+  - These tests catch schema mismatches early (e.g., missing columns like `InputHash`)
+  - Run automatically with `dotnet test` to ensure schema consistency
+  - Use in-memory SQLite to validate schema creation without requiring a real database
+- **Integration tests** for API endpoints and database operations
+
 ### Portal access
 
 ```bash
@@ -229,6 +237,22 @@ curl -X POST http://localhost:30080/v1/requests/<REQUEST_ID>/retry \
   -H "X-User-Id: my-user"
 ```
 
+### Database migrations
+
+The system uses Entity Framework Core with `EnsureCreated()` for schema initialization. When adding new columns or tables:
+
+1. **Update the entity model** in `Shared/Models.cs`
+2. **Run schema validation tests** to catch issues early:
+   ```bash
+   dotnet test tests/Shared.Tests/Shared.Tests.csproj --filter "DatabaseSchemaTests"
+   ```
+3. **Apply migrations manually** for existing databases:
+   - **Local development:** `./scripts/apply-migration-local.sh`
+   - **Kubernetes:** `./scripts/apply-deduplication-migration-k8s.sh`
+   - **Manual:** See `scripts/add-deduplication-columns.sql`
+
+**Important:** The `DatabaseSchemaTests` will catch schema mismatches before deployment, preventing runtime errors like "column does not exist".
+
 ---
 
 ## System Overview
@@ -269,13 +293,16 @@ Postgres doubles as the durable queue. Workers select the oldest `Queued` row (o
 ```mermaid
 flowchart LR
     A[User / Portal] -->|Upload file & create batch| B[Api Gateway]
-    B -->|Create batch + queued requests| C[(Postgres: Batch & Request Store)]
+    B -->|Create batch| C[(Postgres: Batch & Request Store)]
 
     subgraph Queue["DB-backed queue (per GPU pool)"]
         C
     end
 
     C --> D[SchedulerService]
+    D -->|Check duplicates & create requests| DD[DeduplicationService]
+    DD -->|Query by InputHash| C
+    DD -.->|If duplicate found| D
     D -->|Assign GPU pool & SLA decisions| C
     D --> WS[WorkerScaler<br/>Desired spot/ded counts]
 
@@ -297,10 +324,10 @@ flowchart LR
         end
     end
 
-    C -->|Dequeue via SKIP LOCKED| E1
-    C -->|Dequeue via SKIP LOCKED| E2
-    C -->|Dequeue via SKIP LOCKED| F1
-    C -->|Dequeue via SKIP LOCKED| F2
+    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| E1
+    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| E2
+    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| F1
+    C -->|Dequeue via SKIP LOCKED<br/>Excludes deduplicated| F2
 
     E1 -->|Running → Completed/Failed| C
     E2 -->|Running → Completed/Failed| C
@@ -327,6 +354,9 @@ flowchart LR
     DP2 -->|worker_* metrics| G
 
     C -->|Batch & request status/output| J[Batch Portal UI]
+    
+    style DD fill:#e1f5ff
+    style C fill:#fff4e1
 ```
 
 
@@ -339,6 +369,7 @@ flowchart LR
 
 ### SchedulerService
 - Scans queued batches and splits files into per-request work items.
+- **Request deduplication:** Checks for duplicate requests (by input hash) and reuses outputs from previous completions.
 - Assigns spot/dedicated pools, applies SLA-aware escalation, retries interruptions.
 - Updates database and emits metrics.
 
@@ -349,6 +380,8 @@ flowchart LR
 
 ### PostgreSQL
 - Persistent store for files, batches, requests, results, error messages.
+- **Deduplication support:** Stores `InputHash`, `OriginalRequestId`, and `IsDeduplicated` fields on requests for efficient duplicate detection.
+- Indexed on `InputHash` for fast deduplication lookups.
 
 ### Batch Portal
 - ASP.NET Razor Pages UI for submitting batches, tracking progress, and viewing results/escalation info.
@@ -554,6 +587,35 @@ A new endpoint provides direct access to individual request details:
   - Error messages and assigned worker ID
 - Useful for programmatic monitoring and debugging specific requests without fetching the entire batch
 
+##### Request deduplication and caching
+
+The system includes automatic request deduplication to avoid redundant processing and reduce costs:
+
+- **How it works:**
+  - Each request's input payload is hashed using SHA256 (with JSON normalization to handle whitespace differences)
+  - When creating requests, the system checks if a completed request with the same hash already exists
+  - If a duplicate is found, the new request is immediately marked as `Completed` with the output copied from the original request
+  - Deduplication happens **per request line across all batches** (not per batch), maximizing cost savings
+
+- **Configuration:**
+  - Enabled by default (`Deduplication:Enabled: true` in `SchedulerService/appsettings.json`)
+  - Optional per-user scope (`Deduplication:PerUserScope: false` by default)
+    - If `true`: Only deduplicates requests within the same user's batches
+    - If `false`: Deduplicates across all users globally
+
+- **Benefits:**
+  - **Cost savings:** Avoids redundant GPU processing for identical inputs
+  - **Instant completion:** Deduplicated requests complete immediately without worker processing
+  - **Idempotency:** Same input always produces the same output
+  - **Transparency:** Portal UI clearly shows which requests were deduplicated with a badge and link to the original request
+
+- **Current implementation:**
+  - Uses exact matching based on SHA256 hash of the normalized input payload
+  - Works at the request level (each line in a batch is checked independently)
+
+- **Future enhancement:**
+  - The current implementation uses exact string matching (hash-based). In the future, this should be enhanced to cache based on **lexical meaning** of the input line (prompt) rather than exact matching. This would allow deduplication of semantically equivalent prompts even if they have minor formatting differences, rephrasing, or whitespace variations that don't change the actual meaning of the request.
+
 ##### Request details UX enhancements
 
 The Batch Details page now mirrors an operations console:
@@ -701,8 +763,9 @@ The portal includes a comprehensive set of UX enhancements designed to improve o
 | Portal errors when creating batches | Verify Postgres connection string and inspect Postgres pod logs. |
 | API unreachable at `localhost:30080` | Ensure NodePort service exists: `kubectl get svc -n batch-inference`. |
 | Prometheus missing rules | Confirm `/etc/prometheus/rules` volume is mounted and `k8s/monitoring/alert-rules.yaml` applied. |
-| “Simulated spot interruption” floods logs | Expected behavior; confirm Scheduler requeues/escalates to dedicated workers. |
+| "Simulated spot interruption" floods logs | Expected behavior; confirm Scheduler requeues/escalates to dedicated workers. |
 | Redeployed pods are not updated | Make sure to increase the version when running the redeployment scripts |
+| **PostgresException: column does not exist** | **Database schema is out of sync with entity model. Run schema validation tests first (`dotnet test tests/Shared.Tests`), then apply migrations:**<br/>- **Local:** `./scripts/apply-migration-local.sh`<br/>- **K8s:** `./scripts/apply-deduplication-migration-k8s.sh`<br/>- **Manual:** See `scripts/add-deduplication-columns.sql` |
 
 ---
 
@@ -853,7 +916,38 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Concurrent batches.
   - Total in-flight requests.
 
-### 8. Portal UX & Developer Experience
+### 8. Semantic Request Deduplication
+
+**Current state:**
+
+- ✅ Basic request deduplication is implemented using exact string matching (SHA256 hash of normalized JSON input)
+- ✅ Deduplication works across all batches (or per-user if configured)
+- ✅ Deduplicated requests are immediately marked as completed with output copied from original
+
+**Missing / Future work:**
+
+- **Semantic deduplication:** The current implementation uses exact matching based on hash of the input payload. This should be enhanced to cache based on **lexical meaning** of the input line (prompt) rather than exact matching.
+  - Use embedding models (e.g., sentence transformers) to generate semantic embeddings of prompts
+  - Compare embeddings using cosine similarity or other distance metrics
+  - Deduplicate requests with semantically equivalent prompts even if they have:
+    - Minor formatting differences (whitespace, line breaks)
+    - Rephrasing or synonym usage
+    - Different JSON structure but same semantic content
+  - Configure similarity threshold (e.g., 0.95 cosine similarity = duplicate)
+  - Cache embeddings alongside outputs for fast similarity search
+  - This would significantly increase deduplication hit rate and cost savings
+
+**Implementation sketch:**
+
+- Add embedding generation service (local model or API-based)
+- Store embeddings in a vector database (e.g., pgvector extension for PostgreSQL)
+- Update `DeduplicationService` to:
+  - Generate embeddings for new requests
+  - Query vector database for similar embeddings within threshold
+  - Return most similar completed request if found
+- Add configuration for similarity threshold and embedding model selection
+
+### 9. Portal UX & Developer Experience
 
 **Current state:**
 
@@ -877,7 +971,7 @@ Below is a consolidated list of what is currently missing and what would be impl
 - Export functionality (CSV/JSON export of batch/request data)
 - Customizable dashboards and saved filter presets
 
-### 9. End-to-End, Load & Chaos Testing
+### 10. End-to-End, Load & Chaos Testing
 
 **Missing:**
 
@@ -900,7 +994,7 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Random pod deletions.
   - Simulated network partitions.
 
-### 10. Security & Hardening
+### 11. Security & Hardening
 
 **Missing:**
 
@@ -915,7 +1009,7 @@ Below is a consolidated list of what is currently missing and what would be impl
 - Run containers as non-root with minimal permissions.
 - Add NetworkPolicies to restrict pod-to-pod communication.
 
-### 11. CI/CD & Environment Promotion
+### 12. CI/CD & Environment Promotion
 
 **Missing:**
 
@@ -933,7 +1027,7 @@ Below is a consolidated list of what is currently missing and what would be impl
   - Workers.
   - Portal.
 
-### 12. 🌍 Planetary-Scale Architecture (Long-Term)
+### 13. 🌍 Planetary-Scale Architecture (Long-Term)
 This Proof-of-Concept is not designed to operate at planetary scale. Achieving millions of requests per second, multi-region failover, and global-level durability requires substantial architectural evolution beyond the current implementation. The following areas must be re-engineered before the system can approach true large-scale operation:
 
 - Data Layer Scalability

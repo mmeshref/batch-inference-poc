@@ -41,6 +41,7 @@ public sealed class RequestRepository : IRequestRepository
                     INNER JOIN batches b ON r.""BatchId"" = b.""Id""
                     WHERE r.""Status"" = {0}
                       AND r.""GpuPool"" = {1}
+                      AND (r.""IsDeduplicated"" IS NULL OR r.""IsDeduplicated"" = false)
                     ORDER BY b.""Priority"" DESC, r.""CreatedAt"" ASC
                     FOR UPDATE OF r SKIP LOCKED
                     LIMIT 1
@@ -60,7 +61,9 @@ public sealed class RequestRepository : IRequestRepository
 
         var fallback = await db.Requests
             .Include(r => r.Batch)
-            .Where(r => r.Status == RequestStatuses.Queued && r.GpuPool == gpuPool)
+            .Where(r => r.Status == RequestStatuses.Queued && 
+                       r.GpuPool == gpuPool &&
+                       !r.IsDeduplicated)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 

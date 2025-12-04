@@ -55,8 +55,17 @@ public sealed class GpuWorkerService : BackgroundService
     
 
     private async Task ProcessRequestAsync(RequestEntity request, CancellationToken cancellationToken)
+    {
+        // Skip processing if request is already deduplicated (shouldn't happen, but safety check)
+        if (request.IsDeduplicated)
         {
-            await SimulateInferenceAsync(request, cancellationToken);
+            _logger.LogWarning(
+                "Request {RequestId} is marked as deduplicated but was dequeued. This should not happen.",
+                request.Id);
+            return;
+        }
+
+        await SimulateInferenceAsync(request, cancellationToken);
     }
 
     private async Task SimulateInferenceAsync(RequestEntity request, CancellationToken cancellationToken)
