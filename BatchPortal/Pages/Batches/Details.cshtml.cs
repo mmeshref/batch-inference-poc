@@ -31,9 +31,14 @@ public sealed class DetailsModel : PageModel
     [BindProperty(SupportsGet = true)]
     public int RequestPageSize { get; set; } = 50;
 
+    [BindProperty(SupportsGet = true)]
+    public string? RequestStatus { get; set; }
+
     public int TotalRequestPages { get; private set; }
     public bool HasPreviousRequestPage => RequestPage > 1;
     public bool HasNextRequestPage => RequestPage < TotalRequestPages;
+
+    public Dictionary<string, int> RequestStatusCounts { get; private set; } = new();
     
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
@@ -53,12 +58,29 @@ public sealed class DetailsModel : PageModel
 
         Batch = BatchDetailsMapper.Map(batch);
 
-        // Apply pagination to requests
-        var totalRequests = Batch.Requests.Count;
+        // Calculate request status counts
+        var allRequests = Batch.Requests;
+        RequestStatusCounts["All"] = allRequests.Count;
+        RequestStatusCounts["Queued"] = allRequests.Count(r => r.Status == RequestStatuses.Queued);
+        RequestStatusCounts["Running"] = allRequests.Count(r => r.Status == RequestStatuses.Running);
+        RequestStatusCounts["Completed"] = allRequests.Count(r => r.Status == RequestStatuses.Completed);
+        RequestStatusCounts["Failed"] = allRequests.Count(r => r.Status == RequestStatuses.Failed);
+        RequestStatusCounts["Cancelled"] = allRequests.Count(r => r.Status == RequestStatuses.Cancelled);
+
+        // Apply status filter
+        var filteredRequests = allRequests.AsEnumerable();
+        var status = (RequestStatus ?? "All").Trim();
+        if (!string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(status))
+        {
+            filteredRequests = filteredRequests.Where(r => string.Equals(r.Status, status, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Apply pagination to filtered requests
+        var totalRequests = filteredRequests.Count();
         TotalRequestPages = (int)Math.Ceiling((double)totalRequests / RequestPageSize);
         
         var skip = (RequestPage - 1) * RequestPageSize;
-        Batch.Requests = Batch.Requests
+        Batch.Requests = filteredRequests
             .Skip(skip)
             .Take(RequestPageSize)
             .ToList();
@@ -103,6 +125,43 @@ public sealed class DetailsModel : PageModel
         }
 
         return RedirectToPage(new { id });
+    }
+
+    public async Task<IActionResult> OnPostRetryRequestAsync(
+        Guid id, 
+        Guid requestId, 
+        [FromQuery] string? requestStatus = null,
+        [FromQuery] int requestPage = 1,
+        CancellationToken cancellationToken = default)
+    {
+        var batch = await _dbContext.Batches
+            .Include(b => b.Requests)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
+        if (batch is null)
+        {
+            return NotFound();
+        }
+
+        var request = batch.Requests.FirstOrDefault(r => r.Id == requestId);
+        if (request is null || request.Status != RequestStatuses.Failed)
+        {
+            Message = "Request not found or cannot be retried.";
+            return RedirectToPage(new { id, requestStatus, requestPage });
+        }
+
+        var success = await _apiClient.RetryRequestAsync(requestId, batch.UserId, cancellationToken);
+
+        if (success)
+        {
+            Message = "Request queued for retry.";
+        }
+        else
+        {
+            Message = "Could not retry request. It may have already been retried or no longer exists.";
+        }
+
+        return RedirectToPage(new { id, requestStatus, requestPage });
     }
 
     internal static BatchDetailsViewModel MapToViewModel(BatchEntity batch) => BatchDetailsMapper.Map(batch);

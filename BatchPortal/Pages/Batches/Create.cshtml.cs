@@ -1,6 +1,8 @@
+using System.Linq;
 using BatchPortal.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Shared;
 
@@ -30,10 +32,30 @@ public class CreateModel : PageModel
 
     public int ExistingBatchCount { get; private set; }
 
+    [BindProperty(SupportsGet = true)]
+    public Guid? CloneFromBatchId { get; set; }
+
+    public string? ClonedFromBatchId { get; private set; }
+
     public void OnGet()
     {
         UserName ??= _defaultUserId;
         ExistingBatchCount = _dbContext.Batches.Count();
+
+        // Handle batch cloning
+        if (CloneFromBatchId.HasValue)
+        {
+            var sourceBatch = _dbContext.Batches
+                .AsNoTracking()
+                .FirstOrDefault(b => b.Id == CloneFromBatchId.Value);
+
+            if (sourceBatch != null)
+            {
+                UserName = sourceBatch.UserId;
+                Priority = sourceBatch.Priority;
+                ClonedFromBatchId = sourceBatch.Id.ToString();
+            }
+        }
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)

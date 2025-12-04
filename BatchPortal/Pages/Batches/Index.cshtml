@@ -2,9 +2,25 @@
 @model BatchPortal.Pages.Batches.IndexModel
 @{
     ViewData["Title"] = "Batches";
+    ViewData["Breadcrumbs"] = new List<(string, string?)>
+    {
+        ("Batches", null)
+    };
 }
 
-<h1>Batches</h1>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">Batches</h1>
+    <div class="d-flex align-items-center gap-2">
+        <span id="last-updated" class="text-muted small" style="display: none;"></span>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="auto-refresh-toggle" 
+                   @(Model.Batches.Any(b => b.Status == "Queued" || b.Status == "Running") ? "" : "disabled")>
+            <label class="form-check-label" for="auto-refresh-toggle">
+                <i class="bi bi-arrow-clockwise me-1"></i>Auto-refresh
+            </label>
+        </div>
+    </div>
+</div>
 
 <form method="get" class="row g-2 mb-3">
     <div class="col-md-3">
@@ -12,8 +28,9 @@
         <select asp-for="Status" class="form-select">
             @foreach (var s in Model.StatusOptions)
             {
+                var count = Model.StatusCounts.GetValueOrDefault(s, 0);
                 <option value="@s" selected="@(string.Equals(Model.Status ?? "All", s, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                    @s
+                    @s @(count > 0 ? $"({count})" : "")
                 </option>
             }
         </select>
@@ -23,8 +40,9 @@
         <select asp-for="Pool" class="form-select">
             @foreach (var p in Model.PoolOptions)
             {
+                var count = Model.PoolCounts.GetValueOrDefault(p, 0);
                 <option value="@p" selected="@(string.Equals(Model.Pool ?? "All", p, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">
-                    @p
+                    @p @(count > 0 ? $"({count})" : "")
                 </option>
             }
         </select>
@@ -105,14 +123,21 @@ else
                 <td>@batch.CreatedAt.Humanize()</td>
                 <td>@batch.UserId</td>
                 <td>
-                    <i class="bi bi-@(batch.Status switch {
-                        "Queued" => "pause-circle",
-                        "Running" => "play-circle-fill",
-                        "Completed" => "check-circle-fill",
-                        "Failed" => "x-circle-fill",
-                        "Cancelled" => "slash-circle",
-                        _ => "circle"
-                    }) me-1"></i>
+                    @{
+                        var statusIcon = batch.Status switch {
+                            "Queued" => "pause-circle",
+                            "Running" => "play-circle-fill",
+                            "Completed" => "check-circle-fill",
+                            "Failed" => "x-circle-fill",
+                            "Cancelled" => "slash-circle",
+                            "DeadLettered" => "exclamation-triangle-fill",
+                            _ => null
+                        };
+                    }
+                    @if (statusIcon != null)
+                    {
+                        <i class="bi bi-@statusIcon me-1"></i>
+                    }
                     @await Html.PartialAsync("Components/Ui/StatusBadge", batch.Status)
                 </td>
                 <td>@await Html.PartialAsync("Components/Ui/GpuPoolBadge", batch.GpuPool)</td>
@@ -257,4 +282,50 @@ else
     }
 }
 
+@section Scripts {
+    <script>
+        (function() {
+            const toggle = document.getElementById('auto-refresh-toggle');
+            const lastUpdated = document.getElementById('last-updated');
+            let refreshInterval = null;
+            
+            function updateLastUpdated() {
+                const now = new Date();
+                lastUpdated.textContent = 'Last updated: ' + now.toLocaleTimeString();
+                lastUpdated.style.display = 'inline';
+            }
+            
+            function refreshPage() {
+                // Preserve all query parameters
+                const url = new URL(window.location.href);
+                url.searchParams.set('_', Date.now()); // Add timestamp to prevent caching
+                window.location.href = url.toString();
+            }
+            
+            toggle.addEventListener('change', function() {
+                if (this.checked) {
+                    updateLastUpdated();
+                    refreshInterval = setInterval(function() {
+                        refreshPage();
+                    }, 5000); // Refresh every 5 seconds
+                } else {
+                    if (refreshInterval) {
+                        clearInterval(refreshInterval);
+                        refreshInterval = null;
+                    }
+                    lastUpdated.style.display = 'none';
+                }
+            });
+            
+            // Auto-enable if there are in-progress batches
+            @if (Model.Batches.Any(b => b.Status == "Queued" || b.Status == "Running"))
+            {
+                <text>
+                toggle.checked = true;
+                toggle.dispatchEvent(new Event('change'));
+                </text>
+            }
+        })();
+    </script>
+}
 

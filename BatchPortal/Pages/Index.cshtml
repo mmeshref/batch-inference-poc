@@ -1,5 +1,6 @@
 ﻿@page
 @model BatchPortal.Pages.IndexModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Batch Inference Dashboard";
 }
@@ -10,7 +11,7 @@
         <a asp-page="/Batches/Index" class="btn btn-primary">
             <i class="bi bi-grid-3x3-gap-fill me-1"></i> View All Batches
         </a>
-        <a href="http://localhost:30090" target="_blank" class="btn btn-outline-secondary" rel="noopener noreferrer">
+        <a href="@Configuration["Monitoring:GrafanaUrl"]" target="_blank" class="btn btn-outline-secondary" rel="noopener noreferrer">
             <i class="bi bi-graph-up me-1"></i> Monitoring
         </a>
     </div>
@@ -116,14 +117,21 @@ else
                 <td>@b.CreatedAt.Humanize()</td>
                 <td>@b.UserId</td>
                 <td>
-                    <i class="bi bi-@(b.Status switch {
-                        "Queued" => "pause-circle",
-                        "Running" => "play-circle-fill",
-                        "Completed" => "check-circle-fill",
-                        "Failed" => "x-circle-fill",
-                        "Cancelled" => "slash-circle",
-                        _ => "circle"
-                    }) me-1"></i>
+                    @{
+                        var statusIcon = b.Status switch {
+                            "Queued" => "pause-circle",
+                            "Running" => "play-circle-fill",
+                            "Completed" => "check-circle-fill",
+                            "Failed" => "x-circle-fill",
+                            "Cancelled" => "slash-circle",
+                            "DeadLettered" => "exclamation-triangle-fill",
+                            _ => null
+                        };
+                    }
+                    @if (statusIcon != null)
+                    {
+                        <i class="bi bi-@statusIcon me-1"></i>
+                    }
                     @await Html.PartialAsync("Components/Ui/StatusBadge", b.Status)
                 </td>
                 <td>@await Html.PartialAsync("Components/Ui/GpuPoolBadge", b.GpuPool)</td>

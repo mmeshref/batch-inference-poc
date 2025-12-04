@@ -2,6 +2,12 @@
 @model BatchPortal.Pages.Batches.DetailsModel
 @{
     ViewData["Title"] = "Batch Details";
+    var batchIdShort = Model.Batch.Id.ToString().Substring(0, 8);
+    ViewData["Breadcrumbs"] = new List<(string, string?)>
+    {
+        ("Batches", "/Batches"),
+        ($"Batch {batchIdShort}", null)
+    };
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -15,42 +21,58 @@
             </button>
         </div>
     </div>
-    <div>
-        @{
-            var status = Model.Batch.Status?.ToLower() ?? "";
-            var canCancel = status == "queued" || status == "running";
-            var isCompleted = status == "completed" || status == "failed";
-            var isCancelled = status == "cancelled";
-        }
-        @if (canCancel)
-        {
-            <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Batch.Id" onsubmit="return confirm('Are you sure you want to cancel this batch? This will stop all queued requests.');">
-                <button type="submit" class="btn btn-danger btn-lg">
-                    <i class="bi bi-x-circle me-1"></i> Cancel Batch
-                </button>
-            </form>
-        }
-        else if (isCancelled)
-        {
-            <span class="badge bg-secondary fs-5">
-                <i class="bi bi-slash-circle me-1"></i> Batch Cancelled
-            </span>
-        }
-        else if (isCompleted)
-        {
-            <span class="text-muted">
-                <i class="bi bi-info-circle me-1"></i> Batch @Model.Batch.Status (cannot cancel)
-            </span>
-        }
+    <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-2">
+            <span id="last-updated" class="text-muted small" style="display: none;"></span>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="auto-refresh-toggle" 
+                       @(Model.Batch.Status == "Queued" || Model.Batch.Status == "Running" ? "" : "disabled")>
+                <label class="form-check-label" for="auto-refresh-toggle">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Auto-refresh
+                </label>
+            </div>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <a asp-page="/Batches/Create" asp-route-cloneFromBatchId="@Model.Batch.Id" class="btn btn-outline-primary btn-lg">
+                <i class="bi bi-files me-1"></i> Clone Batch
+            </a>
+            @{
+                var status = Model.Batch.Status?.ToLower() ?? "";
+                var canCancel = status == "queued" || status == "running";
+                var isCompleted = status == "completed" || status == "failed";
+                var isCancelled = status == "cancelled";
+            }
+            @if (canCancel)
+            {
+                <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Batch.Id" onsubmit="return confirm('Are you sure you want to cancel this batch? This will stop all queued requests.');" class="mb-0">
+                    <button type="submit" class="btn btn-danger btn-lg">
+                        <i class="bi bi-x-circle me-1"></i> Cancel Batch
+                    </button>
+                </form>
+            }
+            else if (isCancelled)
+            {
+                <span class="badge bg-secondary fs-5">
+                    <i class="bi bi-slash-circle me-1"></i> Batch Cancelled
+                </span>
+            }
+            else if (isCompleted)
+            {
+                <span class="text-muted">
+                    <i class="bi bi-info-circle me-1"></i> Batch @Model.Batch.Status (cannot cancel)
+                </span>
+            }
+        </div>
     </div>
 </div>
 
 @if (!string.IsNullOrEmpty(Model.Message))
 {
-    <div class="alert alert-info alert-dismissible fade show" role="alert">
-        @Model.Message
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            showInfoToast('@Html.Raw(Model.Message.Replace("'", "\\'"))');
+        });
+    </script>
 }
 
 <div class="row mb-4">
@@ -107,7 +129,20 @@
                 </p>
                 @if (!string.IsNullOrEmpty(Model.Batch.ErrorMessage))
                 {
-                    <p class="text-danger"><strong>Error:</strong> @Model.Batch.ErrorMessage</p>
+                    <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="alert-heading mb-2">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Batch Error
+                                </h6>
+                                <p class="mb-2" id="batch-error-text">@Model.Batch.ErrorMessage</p>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-light ms-2" onclick="copyToClipboard('@Html.Raw(Model.Batch.ErrorMessage.Replace("'", "\\'").Replace("\"", "&quot;"))', this)" title="Copy Error">
+                                <i class="bi bi-clipboard"></i>
+                            </button>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 }
             </div>
         </div>
@@ -196,12 +231,39 @@ else
 }
 
 <h2>Requests</h2>
-@if (!Model.Batch.Requests.Any())
+@if (!Model.Batch.Requests.Any() && string.IsNullOrEmpty(Model.RequestStatus))
 {
     <p class="text-muted">No requests associated with this batch.</p>
 }
 else
 {
+    <div class="mb-3">
+        <div class="btn-group" role="group" aria-label="Request status filters">
+            @{
+                var statusOptions = new[] { "All", "Queued", "Running", "Completed", "Failed", "Cancelled" };
+                var currentStatus = Model.RequestStatus ?? "All";
+            }
+            @foreach (var statusOption in statusOptions)
+            {
+                var count = Model.RequestStatusCounts.GetValueOrDefault(statusOption, 0);
+                var isActive = string.Equals(currentStatus, statusOption, StringComparison.OrdinalIgnoreCase);
+                <a asp-page="/Batches/Details" 
+                   asp-route-id="@Model.Batch.Id" 
+                   asp-route-requestStatus="@(statusOption == "All" ? null : statusOption)"
+                   asp-route-requestPage="1"
+                   class="btn btn-sm @(isActive ? "btn-primary" : "btn-outline-primary")">
+                    @statusOption @(count > 0 ? $"({count})" : "")
+                </a>
+            }
+        </div>
+    </div>
+    
+    @if (!Model.Batch.Requests.Any())
+    {
+        <p class="text-muted">No requests match the selected filter.</p>
+    }
+    else
+    {
     <div class="table-responsive">
         <table id="request-table" class="table table-sm table-striped align-middle">
             <thead>
@@ -233,9 +295,25 @@ else
                     <td>@request.RetryCount</td>
                     <td>@(request.CompletedAt?.Humanize() ?? "—")</td>
                     <td>
-                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
-                            Details
-                        </button>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
+                                Details
+                            </button>
+                            @if (request.Status == "Failed")
+                            {
+                                <form method="post" asp-page-handler="RetryRequest" 
+                                      asp-route-id="@Model.Batch.Id" 
+                                      asp-route-requestId="@request.Id"
+                                      asp-route-requestStatus="@Model.RequestStatus"
+                                      asp-route-requestPage="@Model.RequestPage"
+                                      class="mb-0" 
+                                      onsubmit="return confirm('Retry this failed request?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning" title="Retry Request">
+                                        <i class="bi bi-arrow-clockwise me-1"></i> Retry
+                                    </button>
+                                </form>
+                            }
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -244,12 +322,112 @@ else
                             <div class="card card-body">
                             <div class="row">
                                 <div class="col-md-6">
-                                    <h6 class="fw-bold">Input</h6>
-                                    <pre class="bg-light p-2">@(!string.IsNullOrWhiteSpace(request.InputPayload) ? request.InputPayload : "-")</pre>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold mb-0">Input</h6>
+                                        @if (!string.IsNullOrWhiteSpace(request.InputPayload))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary copy-json-btn" data-target-id="input-@request.Id">
+                                                <i class="bi bi-clipboard me-1"></i> Copy
+                                            </button>
+                                        }
+                                    </div>
+                                    <pre class="bg-light p-2 mb-0"><code id="input-@request.Id" class="language-json">@(!string.IsNullOrWhiteSpace(request.InputPayload) ? request.InputPayload : "-")</code></pre>
                                 </div>
                                 <div class="col-md-6">
-                                    <h6 class="fw-bold">Output</h6>
-                                    <pre class="bg-light p-2">@(!string.IsNullOrWhiteSpace(request.OutputPayload) ? request.OutputPayload : "-")</pre>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="fw-bold mb-0">Output</h6>
+                                        @if (!string.IsNullOrWhiteSpace(request.OutputPayload))
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-secondary copy-json-btn" data-target-id="output-@request.Id">
+                                                <i class="bi bi-clipboard me-1"></i> Copy
+                                            </button>
+                                        }
+                                    </div>
+                                    <pre class="bg-light p-2 mb-0"><code id="output-@request.Id" class="language-json">@(!string.IsNullOrWhiteSpace(request.OutputPayload) ? request.OutputPayload : "-")</code></pre>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(request.ErrorMessage))
+                            {
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="alert alert-danger mb-0">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <h6 class="alert-heading mb-2">
+                                                        <i class="bi bi-exclamation-triangle-fill me-2"></i>Request Error
+                                                    </h6>
+                                                    <p class="mb-0" id="request-error-@request.Id">@request.ErrorMessage</p>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-light ms-2" onclick="copyToClipboard('@Html.Raw(request.ErrorMessage.Replace("'", "\\'").Replace("\"", "&quot;"))', this)" title="Copy Error">
+                                                    <i class="bi bi-clipboard"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="fw-bold mb-2">Timeline</h6>
+                                    <div class="request-timeline">
+                                        @{
+                                            var createdTime = request.CreatedAt;
+                                            var startedTime = request.StartedAt;
+                                            var completedTime = request.CompletedAt;
+                                            var now = DateTimeOffset.UtcNow;
+                                        }
+                                        <div class="timeline-item @(startedTime.HasValue ? "completed" : "pending")">
+                                            <div class="timeline-marker"></div>
+                                            <div class="timeline-content">
+                                                <strong>Created</strong>
+                                                <div class="text-muted small">@createdTime.Humanize()</div>
+                                                <div class="text-muted small">@createdTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                            </div>
+                                        </div>
+                                        @if (startedTime.HasValue)
+                                        {
+                                            var queuedDuration = startedTime.Value - createdTime;
+                                            <div class="timeline-connector">
+                                                <div class="timeline-duration">
+                                                    <i class="bi bi-clock me-1"></i>Queued: @queuedDuration.Humanize()
+                                                </div>
+                                            </div>
+                                            <div class="timeline-item @(completedTime.HasValue ? "completed" : (request.Status == "Running" ? "active" : "pending"))">
+                                                <div class="timeline-marker"></div>
+                                                <div class="timeline-content">
+                                                    <strong>Started</strong>
+                                                    <div class="text-muted small">@startedTime.Value.Humanize()</div>
+                                                    <div class="text-muted small">@startedTime.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                                </div>
+                                            </div>
+                                        }
+                                        @if (completedTime.HasValue && startedTime.HasValue)
+                                        {
+                                            var runningDuration = completedTime.Value - startedTime.Value;
+                                            <div class="timeline-connector">
+                                                <div class="timeline-duration">
+                                                    <i class="bi bi-clock me-1"></i>Running: @runningDuration.Humanize()
+                                                </div>
+                                            </div>
+                                            <div class="timeline-item completed @(request.Status == "Failed" ? "failed" : "")">
+                                                <div class="timeline-marker"></div>
+                                                <div class="timeline-content">
+                                                    <strong>Completed</strong>
+                                                    <div class="text-muted small">@completedTime.Value.Humanize()</div>
+                                                    <div class="text-muted small">@completedTime.Value.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</div>
+                                                </div>
+                                            </div>
+                                        }
+                                        else if (startedTime.HasValue && request.Status == "Running")
+                                        {
+                                            var runningDuration = now - startedTime.Value;
+                                            <div class="timeline-connector">
+                                                <div class="timeline-duration">
+                                                    <i class="bi bi-clock me-1"></i>Running: @runningDuration.Humanize() (in progress)
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                             <div class="row">
@@ -328,7 +506,8 @@ else
                         <a class="page-link" asp-page="/Batches/Details"
                            asp-route-id="@Model.Batch.Id"
                            asp-route-requestPage="@i"
-                           asp-route-requestPageSize="@Model.RequestPageSize">
+                           asp-route-requestPageSize="@Model.RequestPageSize"
+                           asp-route-requestStatus="@Model.RequestStatus">
                             @i
                         </a>
                     </li>
@@ -365,6 +544,7 @@ else
             Showing requests @((Model.RequestPage - 1) * Model.RequestPageSize + 1) to @Math.Min(Model.RequestPage * Model.RequestPageSize, Model.Batch.TotalRequests) of @Model.Batch.TotalRequests
         </p>
     }
+    }
 }
 
 @section Scripts {
@@ -397,5 +577,68 @@ else
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         });
+
+        // Auto-refresh functionality
+        (function() {
+            const toggle = document.getElementById('auto-refresh-toggle');
+            const lastUpdated = document.getElementById('last-updated');
+            let refreshInterval = null;
+            
+            if (!toggle) return;
+            
+            function updateLastUpdated() {
+                const now = new Date();
+                lastUpdated.textContent = 'Last updated: ' + now.toLocaleTimeString();
+                lastUpdated.style.display = 'inline';
+            }
+            
+            function refreshPage() {
+                // Preserve all query parameters including requestStatus and pagination
+                const url = new URL(window.location.href);
+                url.searchParams.set('_', Date.now()); // Add timestamp to prevent caching
+                window.location.href = url.toString();
+            }
+            
+            toggle.addEventListener('change', function() {
+                if (this.checked) {
+                    updateLastUpdated();
+                    refreshInterval = setInterval(function() {
+                        refreshPage();
+                    }, 5000); // Refresh every 5 seconds
+                } else {
+                    if (refreshInterval) {
+                        clearInterval(refreshInterval);
+                        refreshInterval = null;
+                    }
+                    lastUpdated.style.display = 'none';
+                }
+            });
+            
+            // Auto-enable if batch is in progress
+            @if (Model.Batch.Status == "Queued" || Model.Batch.Status == "Running")
+            {
+                <text>
+                toggle.checked = true;
+                toggle.dispatchEvent(new Event('change'));
+                </text>
+            }
+        })();
+
+        // Copy JSON buttons
+        document.querySelectorAll('.copy-json-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target-id');
+                const codeElement = document.getElementById(targetId);
+                if (codeElement) {
+                    const text = codeElement.textContent || codeElement.innerText;
+                    copyToClipboard(text, this);
+                }
+            });
+        });
+
+        // Trigger Prism highlighting after page load
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
     </script>
 }

@@ -1,0 +1,32 @@
+@using System.Linq
+@{
+    var breadcrumbs = ViewData["Breadcrumbs"] as IList<(string Text, string? Url)> ?? new List<(string, string?)>();
+}
+
+@if (breadcrumbs.Any())
+{
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a asp-page="/Index">
+                    <i class="bi bi-house-door me-1"></i>Home
+                </a>
+            </li>
+            @foreach (var (text, url) in breadcrumbs)
+            {
+                var isLast = text == breadcrumbs.Last().Text;
+                @if (url != null && !isLast)
+                {
+                    <li class="breadcrumb-item">
+                        <a href="@url">@text</a>
+                    </li>
+                }
+                else
+                {
+                    <li class="breadcrumb-item active" aria-current="page">@text</li>
+                }
+            }
+        </ol>
+    </nav>
+}
+

@@ -295,6 +295,44 @@ app.MapGet("/v1/requests/{id:guid}", async (
     return Results.Ok(response);
 });
 
+app.MapPost("/v1/requests/{id:guid}/retry", async (
+    Guid id,
+    HttpRequest request,
+    BatchDbContext dbContext,
+    CancellationToken cancellationToken) =>
+{
+    if (!TryGetUserId(request, out var userId, out var errorResult))
+    {
+        return errorResult!;
+    }
+
+    var requestEntity = await dbContext.Requests
+        .Include(r => r.Batch)
+        .FirstOrDefaultAsync(r => r.Id == id, cancellationToken);
+
+    if (requestEntity is null || requestEntity.Batch is null || requestEntity.Batch.UserId != userId)
+    {
+        return Results.NotFound();
+    }
+
+    // Only allow retrying failed requests
+    if (requestEntity.Status != RequestStatuses.Failed)
+    {
+        return Results.BadRequest(new { error = "Only failed requests can be retried." });
+    }
+
+    // Reset the request to queued status
+    requestEntity.Status = RequestStatuses.Queued;
+    requestEntity.ErrorMessage = null;
+    requestEntity.StartedAt = null;
+    requestEntity.CompletedAt = null;
+    requestEntity.AssignedWorker = null;
+
+    await dbContext.SaveChangesAsync(cancellationToken);
+
+    return Results.Ok(new { message = "Request queued for retry", requestId = id });
+});
+
 app.MapPost("/v1/batches/{id:guid}/cancel", async (
     Guid id,
     HttpRequest request,

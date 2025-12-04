@@ -3,9 +3,24 @@
 
 @{
     ViewData["Title"] = "Create Batch";
+    ViewData["Breadcrumbs"] = new List<(string, string?)>
+    {
+        ("Batches", "/Batches"),
+        ("Create Batch", null)
+    };
 }
 
 <h1>Create Batch</h1>
+
+@if (!string.IsNullOrEmpty(Model.ClonedFromBatchId))
+{
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>Cloning batch:</strong> Settings from batch <code>@Model.ClonedFromBatchId.Substring(0, 8)</code> have been pre-filled. 
+        You still need to upload a new input file.
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+}
 
 <p class="text-muted">You currently have @Model.ExistingBatchCount batches.</p>
 
@@ -20,8 +35,30 @@
 
     <div class="mb-3">
         <label asp-for="InputFile" class="form-label">Input JSONL File</label>
-        <input asp-for="InputFile" class="form-control" type="file" />
+        <div id="file-upload-zone" class="border border-2 border-dashed rounded p-4 text-center" style="min-height: 150px; cursor: pointer; transition: all 0.3s;">
+            <input asp-for="InputFile" type="file" accept=".jsonl,.json" class="d-none" id="file-input" />
+            <div id="upload-placeholder">
+                <i class="bi bi-cloud-upload display-4 text-muted mb-3"></i>
+                <p class="mb-2">
+                    <strong>Click to upload</strong> or drag and drop
+                </p>
+                <p class="text-muted small mb-0">JSONL file (max 100MB)</p>
+            </div>
+            <div id="file-info" style="display: none;">
+                <i class="bi bi-file-earmark-text display-4 text-primary mb-2"></i>
+                <p class="mb-1"><strong id="file-name"></strong></p>
+                <p class="text-muted small mb-2"><span id="file-size"></span></p>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="remove-file">
+                    <i class="bi bi-x me-1"></i> Remove
+                </button>
+            </div>
+        </div>
+        <div id="file-preview" class="mt-3" style="display: none;">
+            <h6 class="fw-bold">File Preview (first 5 lines):</h6>
+            <pre class="bg-light p-3 border rounded" style="max-height: 200px; overflow-y: auto;"><code id="preview-content"></code></pre>
+        </div>
         <span asp-validation-for="InputFile" class="text-danger"></span>
+        <div id="file-error" class="text-danger small mt-1" style="display: none;"></div>
     </div>
 
     <div class="mb-3">
@@ -45,5 +82,142 @@
 
 @section Scripts {
         <partial name="_ValidationScriptsPartial" />
+        <script>
+            (function() {
+                const fileInput = document.getElementById('file-input');
+                const uploadZone = document.getElementById('file-upload-zone');
+                const uploadPlaceholder = document.getElementById('upload-placeholder');
+                const fileInfo = document.getElementById('file-info');
+                const fileName = document.getElementById('file-name');
+                const fileSize = document.getElementById('file-size');
+                const filePreview = document.getElementById('file-preview');
+                const previewContent = document.getElementById('preview-content');
+                const fileError = document.getElementById('file-error');
+                const removeFileBtn = document.getElementById('remove-file');
+                const maxSize = 100 * 1024 * 1024; // 100MB
+
+                function formatFileSize(bytes) {
+                    if (bytes === 0) return '0 Bytes';
+                    const k = 1024;
+                    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                    const i = Math.floor(Math.log(bytes) / Math.log(k));
+                    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+                }
+
+                function validateFile(file) {
+                    fileError.style.display = 'none';
+                    fileError.textContent = '';
+
+                    if (file.size > maxSize) {
+                        fileError.textContent = 'File size exceeds 100MB limit.';
+                        fileError.style.display = 'block';
+                        return false;
+                    }
+
+                    if (!file.name.toLowerCase().endsWith('.jsonl') && !file.name.toLowerCase().endsWith('.json')) {
+                        fileError.textContent = 'Please upload a JSONL or JSON file.';
+                        fileError.style.display = 'block';
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                function showFileInfo(file) {
+                    fileName.textContent = file.name;
+                    fileSize.textContent = formatFileSize(file.size);
+                    uploadPlaceholder.style.display = 'none';
+                    fileInfo.style.display = 'block';
+                    uploadZone.classList.remove('border-secondary');
+                    uploadZone.classList.add('border-primary', 'bg-light');
+                }
+
+                function hideFileInfo() {
+                    uploadPlaceholder.style.display = 'block';
+                    fileInfo.style.display = 'none';
+                    filePreview.style.display = 'none';
+                    uploadZone.classList.remove('border-primary', 'bg-light');
+                    uploadZone.classList.add('border-secondary');
+                    fileInput.value = '';
+                    fileError.style.display = 'none';
+                }
+
+                function previewFile(file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        const text = e.target.result;
+                        const lines = text.split('\n').slice(0, 5).filter(l => l.trim());
+                        previewContent.textContent = lines.join('\n');
+                        filePreview.style.display = 'block';
+                    };
+                    reader.readAsText(file);
+                }
+
+                function handleFile(file) {
+                    if (!validateFile(file)) {
+                        hideFileInfo();
+                        return;
+                    }
+
+                    showFileInfo(file);
+                    previewFile(file);
+                }
+
+                // Click to upload
+                uploadZone.addEventListener('click', function(e) {
+                    if (e.target !== removeFileBtn && !fileInfo.contains(e.target)) {
+                        fileInput.click();
+                    }
+                });
+
+                // File input change
+                fileInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        handleFile(file);
+                    }
+                });
+
+                // Remove file
+                removeFileBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    hideFileInfo();
+                });
+
+                // Drag and drop
+                uploadZone.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    uploadZone.classList.add('border-primary', 'bg-light');
+                });
+
+                uploadZone.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    if (!uploadZone.contains(e.relatedTarget)) {
+                        uploadZone.classList.remove('border-primary', 'bg-light');
+                        uploadZone.classList.add('border-secondary');
+                    }
+                });
+
+                uploadZone.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    uploadZone.classList.remove('border-primary', 'bg-light');
+                    uploadZone.classList.add('border-secondary');
+
+                    const file = e.dataTransfer.files[0];
+                    if (file) {
+                        fileInput.files = e.dataTransfer.files;
+                        handleFile(file);
+                    }
+                });
+
+                // Prevent default drag behaviors on document
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    document.addEventListener(eventName, function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, false);
+                });
+            })();
+        </script>
 }
 

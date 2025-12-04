@@ -44,7 +44,7 @@ public sealed class IndexModel : PageModel
     [BindProperty(SupportsGet = true)]
     public int PageSize { get; set; } = 25;
 
-    public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Queued", "Running", "Completed", "Failed" };
+    public IReadOnlyList<string> StatusOptions { get; } = new[] { "All", "Queued", "Running", "Completed", "Failed", "Cancelled" };
     public IReadOnlyList<string> PoolOptions { get; } = new[] { "All", "spot", "dedicated" };
 
     public IReadOnlyList<BatchListItemViewModel> Batches { get; private set; } = Array.Empty<BatchListItemViewModel>();
@@ -53,6 +53,10 @@ public sealed class IndexModel : PageModel
     public bool HasPreviousPage => CurrentPage > 1;
     public bool HasNextPage => CurrentPage < TotalPages;
 
+    // Filter counts
+    public Dictionary<string, int> StatusCounts { get; private set; } = new();
+    public Dictionary<string, int> PoolCounts { get; private set; } = new();
+
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         // Validate and clamp pagination parameters
@@ -60,10 +64,23 @@ public sealed class IndexModel : PageModel
         if (PageSize < 10) PageSize = 10;
         if (PageSize > 100) PageSize = 100;
 
-        var query = _dbContext.Batches
+        var baseQuery = _dbContext.Batches
             .Include(b => b.Requests)
             .AsQueryable();
 
+        // Calculate filter counts (before applying filters)
+        StatusCounts["All"] = await baseQuery.CountAsync(cancellationToken);
+        StatusCounts["Queued"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Queued, cancellationToken);
+        StatusCounts["Running"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Running, cancellationToken);
+        StatusCounts["Completed"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Completed, cancellationToken);
+        StatusCounts["Failed"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Failed, cancellationToken);
+        StatusCounts["Cancelled"] = await baseQuery.CountAsync(b => b.Status == RequestStatuses.Cancelled, cancellationToken);
+
+        PoolCounts["All"] = await baseQuery.CountAsync(cancellationToken);
+        PoolCounts["spot"] = await baseQuery.CountAsync(b => b.GpuPool == GpuPools.Spot, cancellationToken);
+        PoolCounts["dedicated"] = await baseQuery.CountAsync(b => b.GpuPool == GpuPools.Dedicated, cancellationToken);
+
+        var query = baseQuery;
         var status = (Status ?? "All").Trim();
         if (!string.Equals(status, "All", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(status))
         {

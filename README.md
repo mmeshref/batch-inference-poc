@@ -222,6 +222,13 @@ curl -X POST http://localhost:30080/v1/batches/<BATCH_ID>/cancel \
   -H "X-User-Id: my-user"
 ```
 
+Retry a failed request:
+
+```bash
+curl -X POST http://localhost:30080/v1/requests/<REQUEST_ID>/retry \
+  -H "X-User-Id: my-user"
+```
+
 ---
 
 ## System Overview
@@ -605,6 +612,86 @@ The Batch Details page provides:
   - Clear timestamps and error messages
   - Optional server-side status filter (All / Queued / Running / Completed / Failed) via query string.
 
+#### Enhanced UX Features
+
+The portal includes a comprehensive set of UX enhancements designed to improve operator productivity and system observability:
+
+**Navigation & Orientation:**
+- **Breadcrumb navigation** on all pages (Home > Batches > Details) for easy navigation context
+- Consistent header navigation with links to Home, Batches, Create Batch, and Monitoring
+
+**Real-Time Updates:**
+- **Auto-refresh toggle** for in-progress batches (Queued/Running status)
+  - Refreshes every 5 seconds when enabled
+  - Shows "Last updated" timestamp
+  - Automatically enabled when viewing active batches
+  - Available on both batch list and batch details pages
+
+**Filtering & Search:**
+- **Smart filters with counts** on the Batches list page:
+  - Status filter dropdown shows count of batches per status (e.g., "Queued (5)", "Running (3)")
+  - GPU pool filter shows count per pool (e.g., "spot (12)", "dedicated (8)")
+  - Counts update dynamically based on current data
+- **Request status filters** on Batch Details page:
+  - Filter buttons for All/Queued/Running/Completed/Failed/Cancelled with counts
+  - Preserves pagination and other filters when switching status
+  - Quick visual filtering of large request lists
+
+**User Feedback:**
+- **Toast notification system** for user actions:
+  - Success, error, warning, and info toast types
+  - Auto-dismiss after 5 seconds (configurable)
+  - Non-intrusive notifications that don't block workflow
+  - Used for batch cancellation, request retry, and other operations
+
+**Batch Management:**
+- **Batch cloning** feature:
+  - "Clone Batch" button on batch details page
+  - Pre-fills create form with same user, priority, and settings
+  - Requires uploading a new input file
+  - Useful for re-running batches with different input data
+- **Request retry** functionality:
+  - "Retry" button appears next to failed requests
+  - Resets request to Queued status for reprocessing
+  - API endpoint: `POST /v1/requests/{id}/retry`
+  - Toast notification confirms retry action
+
+**File Upload Experience:**
+- **Enhanced file upload UX:**
+  - Drag-and-drop zone with visual feedback
+  - File preview showing first 5 lines of JSONL content
+  - File size validation (100MB limit) with clear error messages
+  - File size display and file name confirmation
+  - Remove file option before submission
+  - Visual state changes (border colors, background) during drag operations
+
+**Data Visualization:**
+- **JSON syntax highlighting** for input/output payloads:
+  - Uses Prism.js for syntax highlighting
+  - Copy-to-clipboard buttons for easy payload copying
+  - Improves readability of JSON data in request details
+- **Request timeline visualization:**
+  - Visual timeline showing Created → Started → Completed progression
+  - Duration display between stages (e.g., "Queued: 2 minutes", "Running: 5 minutes")
+  - Color-coded markers (green for completed, blue for active, red for failed)
+  - Humanized timestamps for easy scanning
+  - Shows current running duration for in-progress requests
+
+**Error Handling:**
+- **Enhanced error display:**
+  - Expandable error cards with severity colors (danger alerts)
+  - Copy-to-clipboard buttons for error messages
+  - Batch-level errors prominently displayed in summary section
+  - Request-level errors shown in expandable request details
+  - Clear visual hierarchy for error information
+
+**Visual Polish:**
+- Consistent status and GPU pool badges across all pages
+- Priority badges (Normal/Medium/High) with color coding
+- Progress bars for batch completion
+- Hover effects and transitions for interactive elements
+- Responsive design for mobile and desktop viewing
+
 ---
 
 ## Troubleshooting
@@ -770,24 +857,25 @@ Below is a consolidated list of what is currently missing and what would be impl
 
 **Current state:**
 
-- Portal is intentionally minimal: upload file, submit batch, see status.
+- Portal includes comprehensive UX features for batch management and monitoring:
+  - ✅ Enhanced file upload with drag-and-drop, preview, and validation
+  - ✅ Search, sort, filtering and pagination for batches/requests
+  - ✅ Auto-refresh for in-progress batches (5-second polling)
+  - ✅ Breadcrumb navigation and toast notifications
+  - ✅ Progress bars, per-request status breakdown, and timeline visualization
+  - ✅ Links to input/output files with download and preview
+  - ✅ System health summary on dashboard
+  - ✅ Direct links to Grafana dashboards
+  - ✅ Batch cloning and request retry functionality
+  - ✅ JSON syntax highlighting and enhanced error display
 
-**Missing:**
+**Remaining enhancements:**
 
-- UX polish and responsive design.
-- Search, sort, filtering and pagination for batches/requests.
-- Real-time updates (SignalR / websockets / polling).
-- Direct links to Grafana dashboards.
-
-**Future work:**
-
-- Add richer batch details:
-  - Progress bars.
-  - Per-request status breakdown.
-  - Links to input/output files.
-- Add developer tooling pages:
-  - “System health” summary.
-  - Links to alerting and dashboards.
+- Real-time updates via SignalR / websockets (currently using polling)
+- Advanced search with full-text indexing
+- Bulk operations (cancel multiple batches, retry multiple requests)
+- Export functionality (CSV/JSON export of batch/request data)
+- Customizable dashboards and saved filter presets
 
 ### 9. End-to-End, Load & Chaos Testing
 

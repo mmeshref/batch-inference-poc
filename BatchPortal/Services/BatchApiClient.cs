@@ -195,6 +195,28 @@ public sealed class BatchApiClient
             $"API request failed with status {(int)response.StatusCode} ({response.ReasonPhrase}).");
     }
 
+    public async Task<bool> RetryRequestAsync(Guid requestId, string userId, CancellationToken cancellationToken = default)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, $"/v1/requests/{requestId}/retry");
+        request.Headers.Add("X-User-Id", userId);
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+
+        if (response.IsSuccessStatusCode)
+        {
+            return true;
+        }
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        var body = await response.Content.ReadAsStringAsync();
+        _logger.LogWarning("Retry request failed with status {StatusCode}: {Body}", response.StatusCode, body);
+        return false;
+    }
+
     private sealed record FileUploadResponse(Guid Id);
 
     private sealed record BatchCreationResponse(Guid Id, string Status);

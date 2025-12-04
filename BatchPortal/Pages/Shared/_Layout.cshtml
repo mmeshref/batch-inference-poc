@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] - BatchPortal</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/ux-polish.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/BatchPortal.styles.css" asp-append-version="true" />
@@ -39,9 +41,15 @@
         </nav>
     </header>
     <div class="container-lg mt-4">
+        @await Html.PartialAsync("_Breadcrumb")
         <main role="main" class="pb-3">
             @RenderBody()
         </main>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11;">
+        <div id="toast-container"></div>
     </div>
 
     <footer class="border-top footer text-muted">
@@ -52,6 +60,8 @@
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
 
     @await RenderSectionAsync("Scripts", required: false)
