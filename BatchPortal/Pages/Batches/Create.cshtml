@@ -25,6 +25,16 @@
     </div>
 
     <div class="mb-3">
+        <label asp-for="Priority" class="form-label">Priority</label>
+        <select asp-for="Priority" class="form-select">
+            <option value="1">Normal (1) - Standard processing</option>
+            <option value="5">Medium (5) - Higher priority</option>
+            <option value="10">High (10) - Fastest processing</option>
+        </select>
+        <div class="form-text">Higher priority batches are processed before lower priority ones when the queue is busy.</div>
+    </div>
+
+    <div class="mb-3">
         <label class="form-label">SLA Window</label>
         <input class="form-control" value="24 hours" readonly />
         <div class="form-text">Batches currently have a fixed 24-hour completion window.</div>

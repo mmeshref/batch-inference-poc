@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("GpuWorker")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+cb1d352962d02a28c5448ff77d35e161df2b88d6")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ee0b389fee78b3304eec7c9381da3607004d85a2")]
 [assembly: System.Reflection.AssemblyProductAttribute("GpuWorker")]
 [assembly: System.Reflection.AssemblyTitleAttribute("GpuWorker")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

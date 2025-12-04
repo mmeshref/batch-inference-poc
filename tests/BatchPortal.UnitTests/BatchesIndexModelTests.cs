@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchPortal.Pages.Batches;
+using BatchPortal.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Shared;
 using Xunit;
 
@@ -16,7 +18,8 @@ public sealed class BatchesIndexModelTests
     public async Task OnGetAsync_FiltersByStatus()
     {
         using var context = CreateContextWithData(out var seeded);
-        var model = new IndexModel(context)
+        var apiClient = CreateMockApiClient();
+        var model = new IndexModel(context, apiClient)
         {
             Status = RequestStatuses.Completed
         };
@@ -32,7 +35,8 @@ public sealed class BatchesIndexModelTests
     public async Task OnGetAsync_FiltersByPool()
     {
         using var context = CreateContextWithData(out _);
-        var model = new IndexModel(context)
+        var apiClient = CreateMockApiClient();
+        var model = new IndexModel(context, apiClient)
         {
             Pool = GpuPools.Spot
         };
@@ -47,7 +51,8 @@ public sealed class BatchesIndexModelTests
     public async Task OnGetAsync_FiltersBySearch()
     {
         using var context = CreateContextWithData(out _);
-        var model = new IndexModel(context)
+        var apiClient = CreateMockApiClient();
+        var model = new IndexModel(context, apiClient)
         {
             Search = "search"
         };
@@ -62,7 +67,8 @@ public sealed class BatchesIndexModelTests
     public async Task OnGetAsync_SortsByCreatedDescending()
     {
         using var context = CreateContextWithData(out var seeded);
-        var model = new IndexModel(context)
+        var apiClient = CreateMockApiClient();
+        var model = new IndexModel(context, apiClient)
         {
             SortBy = "created",
             SortDir = "desc"
@@ -78,7 +84,8 @@ public sealed class BatchesIndexModelTests
     public async Task OnGetAsync_SortsByUserAscending()
     {
         using var context = CreateContextWithData(out _);
-        var model = new IndexModel(context)
+        var apiClient = CreateMockApiClient();
+        var model = new IndexModel(context, apiClient)
         {
             SortBy = "user",
             SortDir = "asc"
@@ -169,6 +176,16 @@ public sealed class BatchesIndexModelTests
         };
 
         return batch;
+    }
+
+    private static BatchApiClient CreateMockApiClient()
+    {
+        var httpClient = new System.Net.Http.HttpClient
+        {
+            BaseAddress = new Uri("http://localhost")
+        };
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<BatchApiClient>.Instance;
+        return new BatchApiClient(httpClient, logger);
     }
 }
 

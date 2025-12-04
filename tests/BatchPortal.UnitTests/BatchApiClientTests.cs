@@ -82,7 +82,7 @@ public class BatchApiClientTests
     {
         var client = CreateClient(new HttpResponseMessage(HttpStatusCode.InternalServerError));
 
-        Func<Task> act = () => client.CreateBatchAsync(Guid.NewGuid().ToString(), "user-1", CancellationToken.None);
+        Func<Task> act = () => client.CreateBatchAsync(Guid.NewGuid().ToString(), "user-1", 1, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
@@ -101,7 +101,7 @@ public class BatchApiClientTests
 
         var client = CreateClient(response);
 
-        var result = await client.CreateBatchAsync(Guid.NewGuid().ToString(), "user-2", CancellationToken.None);
+        var result = await client.CreateBatchAsync(Guid.NewGuid().ToString(), "user-2", 1, CancellationToken.None);
 
         result.Should().Be(batchId.ToString());
     }

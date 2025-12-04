@@ -73,11 +73,15 @@
 
 @if (!Model.Batches.Any())
 {
-    <p class="text-muted">No batches found.</p>
+    <div class="empty-state text-center py-5">
+        <i class="bi bi-inbox display-1 text-muted mb-3"></i>
+        <h3 class="text-muted">No batches found</h3>
+        <p class="text-muted mb-4">Try adjusting your filters or create a new batch.</p>
+    </div>
 }
 else
 {
-    <table class="table table-sm table-striped align-middle">
+    <table class="table table-hover align-middle">
         <thead>
             <tr>
                 <th><a href="@SortUrl("created")">Created</a></th>
@@ -85,7 +89,7 @@ else
                 <th><a href="@SortUrl("status")">Status</a></th>
                 <th><a href="@SortUrl("gpupool")">GPU Pool</a></th>
                 <th>Priority</th>
-                <th>Requests</th>
+                <th>Progress</th>
                 <th><a href="@SortUrl("completed")">Completed At</a></th>
                 <th></th>
             </tr>
@@ -93,22 +97,61 @@ else
         <tbody>
         @foreach (var batch in Model.Batches)
         {
+            var totalRequests = batch.TotalRequests > 0 ? batch.TotalRequests : 1;
+            var completedRequests = batch.CompletedRequests;
+            var progressPercent = (int)((completedRequests / (double)totalRequests) * 100);
+            
             <tr>
                 <td>@batch.CreatedAt.Humanize()</td>
                 <td>@batch.UserId</td>
-                <td>@await Html.PartialAsync("Components/Ui/StatusBadge", batch.Status)</td>
+                <td>
+                    <i class="bi bi-@(batch.Status switch {
+                        "Queued" => "pause-circle",
+                        "Running" => "play-circle-fill",
+                        "Completed" => "check-circle-fill",
+                        "Failed" => "x-circle-fill",
+                        "Cancelled" => "slash-circle",
+                        _ => "circle"
+                    }) me-1"></i>
+                    @await Html.PartialAsync("Components/Ui/StatusBadge", batch.Status)
+                </td>
                 <td>@await Html.PartialAsync("Components/Ui/GpuPoolBadge", batch.GpuPool)</td>
                 <td>@await Html.PartialAsync("Components/Ui/PriorityBadge", batch.Priority)</td>
-                <td>
-                    @batch.CompletedRequests / @batch.TotalRequests
+                <td style="min-width: 180px;">
+                    <div class="progress" style="height: 22px;">
+                        <div class="progress-bar @(progressPercent == 100 ? "bg-success" : batch.FailedRequests > 0 ? "bg-warning" : "")" 
+                             role="progressbar" 
+                             style="width: @progressPercent%" 
+                             aria-valuenow="@progressPercent" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                            <small class="fw-bold">@completedRequests/@totalRequests</small>
+                        </div>
+                    </div>
                     @if (batch.FailedRequests > 0)
                     {
-                        <span class="badge bg-danger ms-1">@batch.FailedRequests failed</span>
+                        <small class="text-danger ms-1">@batch.FailedRequests failed</small>
                     }
                 </td>
                 <td>@(batch.CompletedAt?.Humanize() ?? "—")</td>
                 <td>
-                    <a asp-page="/Batches/Details" asp-route-id="@batch.Id" class="btn btn-sm btn-outline-primary">Details</a>
+                    @{
+                        var batchStatus = (batch.Status ?? "").ToLowerInvariant();
+                        var canCancelBatch = batchStatus == "queued" || batchStatus == "running";
+                    }
+                    <div class="d-flex gap-1">
+                        <a asp-page="/Batches/Details" asp-route-id="@batch.Id" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrow-right-circle me-1"></i> View
+                        </a>
+                        @if (canCancelBatch)
+                        {
+                            <form method="post" asp-page-handler="Cancel" asp-route-id="@batch.Id" style="display: contents;" onsubmit="return confirm('Cancel this batch? All queued requests will be stopped.');">
+                                <button type="submit" class="btn btn-sm btn-danger" title="Cancel Batch">
+                                    <i class="bi bi-x-circle me-1"></i> Cancel
+                                </button>
+                            </form>
+                        }
+                    </div>
                 </td>
             </tr>
         }

@@ -111,6 +111,7 @@ public sealed class BatchApiClient
     public async Task<string> CreateBatchAsync(
         string inputFileId,
         string userId,
+        int priority,
         CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(inputFileId);
@@ -121,9 +122,19 @@ public sealed class BatchApiClient
             throw new ArgumentException("Input file id must be a valid GUID.", nameof(inputFileId));
         }
 
+        var metadata = new Dictionary<string, string>();
+        if (priority >= 10)
+        {
+            metadata["priority"] = "high";
+        }
+        else if (priority >= 5)
+        {
+            metadata["priority"] = "medium";
+        }
+
         var payload = new CreateBatchPayload(
             inputGuid,
-            null);
+            metadata.Count > 0 ? metadata : null);
 
         var json = JsonSerializer.Serialize(payload, _serializerOptions);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/batches")

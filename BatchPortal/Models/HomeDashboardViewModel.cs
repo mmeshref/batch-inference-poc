@@ -22,6 +22,8 @@ public class HomeDashboardViewModel
         public DateTimeOffset CreatedAt { get; set; }
         public DateTimeOffset? CompletedAt { get; set; }
         public bool IsSlaBreached { get; set; }
+        public int TotalRequests { get; set; }
+        public int CompletedRequests { get; set; }
     }
 }
 

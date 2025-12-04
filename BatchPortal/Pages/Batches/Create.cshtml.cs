@@ -25,6 +25,9 @@ public class CreateModel : PageModel
     [BindProperty]
     public string? UserName { get; set; }
 
+    [BindProperty]
+    public int Priority { get; set; } = 1; // Default: Normal priority
+
     public int ExistingBatchCount { get; private set; }
 
     public void OnGet()
@@ -58,6 +61,7 @@ public class CreateModel : PageModel
             var batchId = await _batchApiClient.CreateBatchAsync(
                 fileId,
                 userId,
+                Priority,
                 cancellationToken);
 
             return RedirectToPage("/Batches/Details", new { id = batchId });

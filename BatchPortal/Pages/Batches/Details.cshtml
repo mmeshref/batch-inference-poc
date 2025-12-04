@@ -5,13 +5,44 @@
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h1>Batch @Model.Batch.Id</h1>
-    @if (Model.Batch.Status is "Queued" or "Running")
-    {
-        <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Batch.Id" onsubmit="return confirm('Are you sure you want to cancel this batch?');">
-            <button type="submit" class="btn btn-danger">Cancel Batch</button>
-        </form>
-    }
+    <div>
+        <h1 class="d-inline-block mb-0">Batch Details</h1>
+        <div class="mt-2">
+            <span class="text-muted">ID:</span>
+            <code class="monospaced">@Model.Batch.Id</code>
+            <button class="btn btn-sm btn-outline-secondary ms-2" onclick="copyToClipboard('@Model.Batch.Id', this)" title="Copy Batch ID">
+                <i class="bi bi-clipboard"></i>
+            </button>
+        </div>
+    </div>
+    <div>
+        @{
+            var status = Model.Batch.Status?.ToLower() ?? "";
+            var canCancel = status == "queued" || status == "running";
+            var isCompleted = status == "completed" || status == "failed";
+            var isCancelled = status == "cancelled";
+        }
+        @if (canCancel)
+        {
+            <form method="post" asp-page-handler="Cancel" asp-route-id="@Model.Batch.Id" onsubmit="return confirm('Are you sure you want to cancel this batch? This will stop all queued requests.');">
+                <button type="submit" class="btn btn-danger btn-lg">
+                    <i class="bi bi-x-circle me-1"></i> Cancel Batch
+                </button>
+            </form>
+        }
+        else if (isCancelled)
+        {
+            <span class="badge bg-secondary fs-5">
+                <i class="bi bi-slash-circle me-1"></i> Batch Cancelled
+            </span>
+        }
+        else if (isCompleted)
+        {
+            <span class="text-muted">
+                <i class="bi bi-info-circle me-1"></i> Batch @Model.Batch.Status (cannot cancel)
+            </span>
+        }
+    </div>
 </div>
 
 @if (!string.IsNullOrEmpty(Model.Message))
@@ -35,6 +66,10 @@
                 <p>
                     <strong>GPU Pool:</strong>
                     @await Html.PartialAsync("Components/Ui/GpuPoolBadge", Model.Batch.GpuPool)
+                </p>
+                <p>
+                    <strong>Priority:</strong>
+                    @await Html.PartialAsync("Components/Ui/PriorityBadge", Model.Batch.Priority)
                 </p>
                 <p>
                     <strong>Created:</strong> @Model.Batch.CreatedAt.Humanize()
@@ -252,5 +287,115 @@ else
             </tbody>
         </table>
     </div>
+
+    @if (Model.TotalRequestPages > 1)
+    {
+        <nav aria-label="Request pagination" class="mt-3">
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(!Model.HasPreviousRequestPage ? "disabled" : "")">
+                    <a class="page-link" asp-page="/Batches/Details"
+                       asp-route-id="@Model.Batch.Id"
+                       asp-route-requestPage="@(Model.RequestPage - 1)"
+                       asp-route-requestPageSize="@Model.RequestPageSize">
+                        Previous
+                    </a>
+                </li>
+
+                @{
+                    var startPage = Math.Max(1, Model.RequestPage - 2);
+                    var endPage = Math.Min(Model.TotalRequestPages, Model.RequestPage + 2);
+                }
+
+                @if (startPage > 1)
+                {
+                    <li class="page-item">
+                        <a class="page-link" asp-page="/Batches/Details"
+                           asp-route-id="@Model.Batch.Id"
+                           asp-route-requestPage="1"
+                           asp-route-requestPageSize="@Model.RequestPageSize">
+                            1
+                        </a>
+                    </li>
+                    @if (startPage > 2)
+                    {
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    }
+                }
+
+                @for (var i = startPage; i <= endPage; i++)
+                {
+                    <li class="page-item @(i == Model.RequestPage ? "active" : "")">
+                        <a class="page-link" asp-page="/Batches/Details"
+                           asp-route-id="@Model.Batch.Id"
+                           asp-route-requestPage="@i"
+                           asp-route-requestPageSize="@Model.RequestPageSize">
+                            @i
+                        </a>
+                    </li>
+                }
+
+                @if (endPage < Model.TotalRequestPages)
+                {
+                    @if (endPage < Model.TotalRequestPages - 1)
+                    {
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    }
+                    <li class="page-item">
+                        <a class="page-link" asp-page="/Batches/Details"
+                           asp-route-id="@Model.Batch.Id"
+                           asp-route-requestPage="@Model.TotalRequestPages"
+                           asp-route-requestPageSize="@Model.RequestPageSize">
+                            @Model.TotalRequestPages
+                        </a>
+                    </li>
+                }
+
+                <li class="page-item @(!Model.HasNextRequestPage ? "disabled" : "")">
+                    <a class="page-link" asp-page="/Batches/Details"
+                       asp-route-id="@Model.Batch.Id"
+                       asp-route-requestPage="@(Model.RequestPage + 1)"
+                       asp-route-requestPageSize="@Model.RequestPageSize">
+                        Next
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <p class="text-center text-muted">
+            Showing requests @((Model.RequestPage - 1) * Model.RequestPageSize + 1) to @Math.Min(Model.RequestPage * Model.RequestPageSize, Model.Batch.TotalRequests) of @Model.Batch.TotalRequests
+        </p>
+    }
 }
 
+@section Scripts {
+    <script>
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(function() {
+                // Change icon to check mark
+                const icon = button.querySelector('i');
+                const originalClass = icon.className;
+                icon.className = 'bi bi-check2';
+                button.classList.remove('btn-outline-secondary');
+                button.classList.add('btn-success');
+                
+                // Reset after 2 seconds
+                setTimeout(function() {
+                    icon.className = originalClass;
+                    button.classList.remove('btn-success');
+                    button.classList.add('btn-outline-secondary');
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Failed to copy: ', err);
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        // Initialize Bootstrap tooltips
+        document.addEventListener('DOMContentLoaded', function() {
+            var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+            tooltipTriggerList.map(function (tooltipTriggerEl) {
+                return new bootstrap.Tooltip(tooltipTriggerEl);
+            });
+        });
+    </script>
+}

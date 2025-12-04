@@ -9,6 +9,7 @@ public sealed class BatchDetailsViewModel
     public string UserId { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string GpuPool { get; set; } = string.Empty;
+    public int Priority { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }

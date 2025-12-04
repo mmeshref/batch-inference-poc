@@ -24,9 +24,24 @@ public sealed class DetailsModel : PageModel
     
     [TempData]
     public string? Message { get; set; }
+
+    [BindProperty(SupportsGet = true)]
+    public int RequestPage { get; set; } = 1;
+
+    [BindProperty(SupportsGet = true)]
+    public int RequestPageSize { get; set; } = 50;
+
+    public int TotalRequestPages { get; private set; }
+    public bool HasPreviousRequestPage => RequestPage > 1;
+    public bool HasNextRequestPage => RequestPage < TotalRequestPages;
     
     public async Task<IActionResult> OnGetAsync(Guid id, CancellationToken cancellationToken)
     {
+        // Validate and clamp pagination parameters
+        if (RequestPage < 1) RequestPage = 1;
+        if (RequestPageSize < 10) RequestPageSize = 10;
+        if (RequestPageSize > 200) RequestPageSize = 200;
+
         var batch = await _dbContext.Batches
             .Include(b => b.Requests)
             .SingleOrDefaultAsync(b => b.Id == id, cancellationToken);
@@ -37,6 +52,16 @@ public sealed class DetailsModel : PageModel
         }
 
         Batch = BatchDetailsMapper.Map(batch);
+
+        // Apply pagination to requests
+        var totalRequests = Batch.Requests.Count;
+        TotalRequestPages = (int)Math.Ceiling((double)totalRequests / RequestPageSize);
+        
+        var skip = (RequestPage - 1) * RequestPageSize;
+        Batch.Requests = Batch.Requests
+            .Skip(skip)
+            .Take(RequestPageSize)
+            .ToList();
 
         if (Batch.OutputFileId.HasValue)
         {

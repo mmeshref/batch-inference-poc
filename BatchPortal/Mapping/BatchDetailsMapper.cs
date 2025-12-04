@@ -21,6 +21,7 @@ internal static class BatchDetailsMapper
             UserId = batch.UserId,
             Status = batch.Status,
             GpuPool = batch.GpuPool,
+            Priority = batch.Priority,
             CreatedAt = batch.CreatedAt,
             StartedAt = batch.StartedAt,
             CompletedAt = batch.CompletedAt,

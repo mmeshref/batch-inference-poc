@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchPortal.Models;
+using BatchPortal.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
@@ -14,10 +15,12 @@ namespace BatchPortal.Pages.Batches;
 public sealed class IndexModel : PageModel
 {
     private readonly BatchDbContext _dbContext;
+    private readonly BatchApiClient _apiClient;
 
-    public IndexModel(BatchDbContext dbContext)
+    public IndexModel(BatchDbContext dbContext, BatchApiClient apiClient)
     {
         _dbContext = dbContext;
+        _apiClient = apiClient;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -123,5 +126,31 @@ public sealed class IndexModel : PageModel
                 IsSlaBreached = b.CompletedAt.HasValue && b.CompletedAt.Value > b.CreatedAt + b.CompletionWindow
             })
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostCancelAsync(Guid id, CancellationToken cancellationToken)
+    {
+        var batch = await _dbContext.Batches
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken);
+
+        if (batch is null)
+        {
+            return RedirectToPage();
+        }
+
+        await _apiClient.CancelBatchAsync(id, batch.UserId, cancellationToken);
+
+        // Preserve current page and filters
+        return RedirectToPage(new
+        {
+            CurrentPage,
+            PageSize,
+            Status,
+            Pool,
+            Search,
+            SortBy,
+            SortDir
+        });
     }
 }

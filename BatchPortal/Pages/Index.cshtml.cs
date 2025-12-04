@@ -26,6 +26,7 @@ public class IndexModel : PageModel
         var now = DateTimeOffset.UtcNow;
 
         var batches = await _dbContext.Batches
+            .Include(b => b.Requests)
             .AsNoTracking()
             .ToListAsync(cancellationToken);
 
@@ -76,7 +77,9 @@ public class IndexModel : PageModel
                 GpuPool = b.GpuPool,
                 CreatedAt = b.CreatedAt,
                 CompletedAt = b.CompletedAt,
-                IsSlaBreached = b.CompletedAt.HasValue && b.CompletedAt.Value > b.CreatedAt + b.CompletionWindow
+                IsSlaBreached = b.CompletedAt.HasValue && b.CompletedAt.Value > b.CreatedAt + b.CompletionWindow,
+                TotalRequests = b.Requests?.Count ?? 0,
+                CompletedRequests = b.Requests?.Count(r => r.Status == RequestStatuses.Completed) ?? 0
             })
             .ToList();
 

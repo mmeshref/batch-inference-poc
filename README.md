@@ -345,6 +345,10 @@ flowchart LR
 
 ### Batch Portal
 - ASP.NET Razor Pages UI for submitting batches, tracking progress, and viewing results/escalation info.
+- **Batch Creation UI:** Upload JSONL files and create batches with priority selection via web form.
+- **Dashboard:** Real-time stats, recent batches with progress bars, and system health indicators.
+- **Batch Management:** List, filter, sort, paginate, and cancel batches with visual progress tracking.
+- **Request Details:** Expandable request rows with full input/output payloads, pagination for large batches.
 - Links to Grafana dashboards for observability.
 
 ### Prometheus / Grafana / Alertmanager
@@ -430,39 +434,54 @@ This stylesheet contains layout refinements and visual polish for the Batch Port
 
 #### Portal Landing Page
 
-The portal home page (`/`) acts as a lightweight operations dashboard:
+The portal home page (`/`) acts as a lightweight operations dashboard with enhanced visual design:
 
-- High-level stats:
-  - Total number of batches.
-  - Batches completed and failed in the last 24 hours.
-  - In-progress batches (Queued or Running).
+- **High-level stats cards:**
+  - Total number of batches (with layers icon).
+  - Batches completed and failed in the last 24 hours (with check/x-circle icons).
+  - In-progress batches (with hourglass icon).
+  - Each stat card features hover effects and color-coded icons for quick visual scanning.
 
-- Recent batches table:
+- **Recent batches table:**
   - Latest batches with user, status, GPU pool, and SLA state (Met / Breached / In progress).
+  - **Visual progress bars** showing completion percentage (e.g., "3694/5760" with filled progress bar).
+  - Status icons next to badges (play/pause/check/x icons) for instant recognition.
   - Direct link into the detailed view for each batch.
+  - Quick action buttons: "View All Batches" and link to Monitoring dashboard.
 
-- Basic system health:
+- **Basic system health:**
   - Database reachability check (simple read).
   - API gateway health flag (currently simple / mockable check, extendable to real health endpoints).
+
+- **Empty states:**
+  - Friendly empty state messages with icons and call-to-action buttons when no data is available.
 
 #### Batches List View
 
 The `/Batches` page provides an operator-friendly view over all batches:
 
-- Filtering:
+- **Filtering:**
   - By batch status (Queued / Running / Completed / Failed).
-  - By user id (simple free-text match).
+  - By GPU pool (spot / dedicated).
+  - By user id or batch id (simple free-text search).
 
-- Sorting:
-  - By creation time (newest or oldest first).
+- **Sorting:**
+  - Click column headers to sort: Created, User, Status, GPU Pool, Completed At.
+  - Default: newest first (Created descending).
 
-- Columns:
-  - Created timestamp.
+- **Columns:**
+  - Created timestamp (humanized, e.g., "5 minutes ago").
   - User id.
-  - Status and GPU pool badges.
-  - SLA state (Met / Breached / In progress).
-  - Total number of requests in the batch.
-  - Link to the detailed batch view.
+  - Status badges with icons (play/pause/check/x icons) and GPU pool badges.
+  - Priority badge (Normal/Medium/High).
+  - **Visual progress bars** showing request completion (e.g., "3694/5760" with filled bar).
+  - Failed request count badge when applicable.
+  - Completed timestamp.
+  - Action buttons: View details and Cancel (for active batches).
+
+- **Quick actions:**
+  - Cancel button (red X icon) appears next to View button for Queued/Running batches.
+  - One-click cancellation with confirmation dialog.
 
 ##### Batches list filters and sorting
 
@@ -481,31 +500,43 @@ Each batch row shows status and GPU pool with badges, plus basic request counts 
 ##### Priority-based scheduling
 
 Batches can now be assigned a priority level (Normal = 1, Medium = 5, High = 10+). The system:
-- Displays priority badges (Normal/Medium/High) in the batch list with visual color coding
+- **UI:** Priority can be set during batch creation via a dropdown selector in the Create Batch form
+- Displays priority badges (Normal/Medium/High) in the batch list and details page with visual color coding
 - Workers dequeue requests ordered by batch priority (highest first), then by creation time
 - Ensures high-priority workloads are processed before lower-priority ones when the queue is deep
 
-This allows users to designate critical batches (via the `metadata.priority` field when creating a batch) and ensures they're fast-tracked through the system.
+This allows users to designate critical batches either via the Portal UI or the `metadata.priority` field when creating a batch via API, ensuring they're fast-tracked through the system.
 
 ##### Pagination
 
-The batch list now supports pagination to handle large numbers of batches efficiently:
+The portal now supports pagination in multiple places to handle large datasets efficiently:
+
+**Batch List:**
 - Configurable page size (default: 25 batches per page, range: 10-100)
 - Navigation controls: Previous, Next, page numbers, and quick jump to first/last page
 - Shows "X to Y of Z batches" for context
 - Preserves filters and sort order across page navigation
 
-This prevents performance degradation when viewing thousands of batches and provides a cleaner browsing experience.
+**Batch Details - Requests:**
+- Requests within a batch are paginated (default: 50 requests per page, range: 10-200)
+- Same navigation controls as batch list
+- Shows "Showing requests X to Y of Z" counter
+- Essential for batches with hundreds or thousands of requests
+
+This prevents performance degradation when viewing thousands of batches or requests and provides a cleaner browsing experience.
 
 ##### Batch cancellation
 
 Users can now cancel batches that are queued or in progress:
 - **API:** `POST /v1/batches/{id}/cancel` endpoint marks the batch as cancelled and stops all queued requests
-- **Portal:** "Cancel Batch" button appears on the Batch Details page for active batches
+- **Portal:** "Cancel Batch" button appears in two places:
+  - **Batch List Page:** Red cancel button (X icon) next to the View button for each active batch
+  - **Batch Details Page:** Large red "Cancel Batch" button in the header for active batches
 - Running requests complete normally, but queued requests are marked as `Cancelled`
 - Cancelled batches appear with distinct status badges and cannot be restarted
+- Confirmation dialog prevents accidental cancellations
 
-This gives operators immediate control to stop errant or unnecessary workloads without waiting for completion.
+This gives operators immediate control to stop errant or unnecessary workloads from either the list view or detailed view without waiting for completion.
 
 ##### Individual request API
 
@@ -530,21 +561,32 @@ The Batch Details page now mirrors an operations console:
 
 The `/Batches/Details` page provides a richer view of a single batch:
 
-- Batch summary:
-  - User id, status, GPU pool, creation/started/completed timestamps.
+- **Batch summary:**
+  - User id, status, GPU pool, **priority level**, creation/started/completed timestamps.
   - SLA deadline and whether it was met or breached.
   - Any batch-level error message.
-- Requests summary:
+  - **Copy-to-clipboard button** for batch ID for easy sharing/debugging.
+
+- **Batch actions:**
+  - **Cancel Batch** button (large, prominent) for Queued/Running batches.
+  - Confirmation dialog prevents accidental cancellation.
+
+- **Requests summary:**
   - Total, completed, failed, queued, and running counts.
-- Interruption / escalation notes:
+
+- **Interruption / escalation notes:**
   - Highlighted entries when a request was interrupted on spot capacity.
   - Notes when a request was requeued to a dedicated GPU to protect the SLA.
-- Request-level table:
+
+- **Request-level table:**
   - One row per request with line number, status, GPU pool, timestamps, and badges indicating interruptions or escalations.
-- Output file UX:
+  - **Pagination:** Large batches are paginated (default: 50 requests per page) with navigation controls.
+  - Expandable rows show full input/output payloads, error messages, and GPU pool history.
+
+- **Output file UX:**
   - Download the full output file when available.
   - Preview the first few lines inline to validate the contents quickly.
-- Mirrors OpenAI-style batch outputs so operators can visually inspect the first N lines (default 20) directly in the portal or download the full file for downstream processing.
+  - Mirrors OpenAI-style batch outputs so operators can visually inspect the first N lines (default 20) directly in the portal or download the full file for downstream processing.
 
 #### Batch Details UX
 

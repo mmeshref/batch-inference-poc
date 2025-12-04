@@ -71,3 +71,118 @@ code.monospaced {
     font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+/* Stat Cards */
+.stat-card {
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+/* Empty State */
+.empty-state {
+    padding: 60px 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+}
+
+.empty-state .display-1 {
+    font-size: 5rem;
+    opacity: 0.3;
+}
+
+/* Progress Bars */
+.progress {
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    transition: width 0.6s ease;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Copy Button Feedback */
+.btn-success.copy-success {
+    animation: pulse 0.3s ease;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Table Improvements */
+.table-hover tbody tr {
+    transition: background-color 0.15s ease-in-out;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+
+/* Bootstrap Icon Animations */
+.bi {
+    transition: transform 0.2s ease;
+}
+
+button:hover .bi,
+a:hover .bi {
+    transform: scale(1.1);
+}
+
+/* Status Icons */
+.bi-pause-circle {
+    color: #6c757d;
+}
+
+.bi-play-circle-fill {
+    color: #0d6efd;
+    animation: pulse-subtle 2s infinite;
+}
+
+.bi-check-circle-fill {
+    color: #198754;
+}
+
+.bi-x-circle-fill {
+    color: #dc3545;
+}
+
+.bi-slash-circle {
+    color: #ffc107;
+}
+
+@keyframes pulse-subtle {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}

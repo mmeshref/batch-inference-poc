@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchPortal.Pages.Batches;
+using BatchPortal.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Shared;
 using Xunit;
 
@@ -16,7 +18,12 @@ public class BatchListItemViewModelTests
     public async Task IndexModelProjection_ComputesRequestCounts()
     {
         await using var context = CreateContextWithBatch();
-        var model = new IndexModel(context);
+        var httpClient = new System.Net.Http.HttpClient
+        {
+            BaseAddress = new Uri("http://localhost")
+        };
+        var apiClient = new BatchApiClient(httpClient, NullLogger<BatchApiClient>.Instance);
+        var model = new IndexModel(context, apiClient);
 
         await model.OnGetAsync(CancellationToken.None);
 
