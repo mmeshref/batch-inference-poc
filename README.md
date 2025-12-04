@@ -359,6 +359,83 @@ flowchart LR
     style C fill:#fff4e1
 ```
 
+### Request Flow
+
+The following diagram shows the detailed lifecycle of a single request through the system:
+
+```mermaid
+flowchart TD
+    Start([User uploads JSONL file]) --> Upload[ApiGateway: Store file]
+    Upload --> CreateBatch[ApiGateway: Create batch]
+    CreateBatch --> BatchQueued[(Postgres: Batch Status = Queued)]
+    
+    BatchQueued --> SchedulerDetect[SchedulerService: Detects queued batch]
+    SchedulerDetect --> ReadFile[Scheduler: Read file line by line]
+    
+    ReadFile --> ForEachLine{For each line}
+    
+    ForEachLine --> ComputeHash[Compute InputHash<br/>SHA256 of normalized JSON]
+    ComputeHash --> CheckDup{DeduplicationService:<br/>Check for duplicate}
+    
+    CheckDup -->|Query by InputHash| DBQuery[(Postgres: Query completed requests)]
+    DBQuery -->|Found duplicate| DuplicateFound[Duplicate found]
+    DBQuery -->|No duplicate| NoDuplicate[No duplicate found]
+    
+    DuplicateFound --> CopyOutput[Copy output from original request]
+    CopyOutput --> MarkDedup[Create RequestEntity:<br/>Status = Completed<br/>IsDeduplicated = true<br/>OriginalRequestId = original.Id]
+    MarkDedup --> SaveDedup[(Postgres: Save deduplicated request)]
+    SaveDedup --> NextLine{More lines?}
+    
+    NoDuplicate --> CreateRequest[Create RequestEntity:<br/>Status = Queued<br/>InputHash = hash<br/>GpuPool = spot/dedicated]
+    CreateRequest --> SaveQueued[(Postgres: Save queued request)]
+    SaveQueued --> NextLine
+    
+    NextLine -->|Yes| ForEachLine
+    NextLine -->|No| BatchRunning[Batch Status = Running]
+    
+    BatchRunning --> WorkerDequeue[GPU Worker: Dequeue request<br/>FOR UPDATE SKIP LOCKED<br/>Excludes IsDeduplicated = true]
+    WorkerDequeue --> CheckDequeue{Request<br/>dequeued?}
+    
+    CheckDequeue -->|No| WorkerIdle[Worker: Backoff & retry]
+    WorkerIdle --> WorkerDequeue
+    
+    CheckDequeue -->|Yes| MarkRunning[Mark Status = Running<br/>Set StartedAt<br/>Set AssignedWorker]
+    MarkRunning --> Process[Worker: Process request<br/>Simulate GPU inference]
+    
+    Process --> CheckInterrupt{Spot<br/>interruption?}
+    
+    CheckInterrupt -->|Yes| RequeueDedicated[Requeue to Dedicated pool<br/>Status = Queued<br/>Increment retry count]
+    RequeueDedicated --> WorkerDequeue
+    
+    CheckInterrupt -->|No| CheckSuccess{Processing<br/>successful?}
+    
+    CheckSuccess -->|Yes| MarkCompleted[Mark Status = Completed<br/>Set OutputPayload<br/>Set CompletedAt]
+    CheckSuccess -->|No| MarkFailed[Mark Status = Failed<br/>Set ErrorMessage<br/>Set CompletedAt]
+    
+    MarkCompleted --> CheckBatch{All requests<br/>completed/failed?}
+    MarkFailed --> CheckBatch
+    
+    CheckBatch -->|No| WorkerDequeue
+    CheckBatch -->|Yes| FinalizeBatch[Finalize batch:<br/>Create output JSONL file<br/>Set Batch Status = Completed/Failed]
+    FinalizeBatch --> BatchComplete[(Postgres: Batch complete)]
+    
+    SaveDedup --> BatchComplete
+    
+    BatchComplete --> Portal[Portal/API: Display results]
+    
+    style DuplicateFound fill:#e1f5ff
+    style MarkDedup fill:#e1f5ff
+    style SaveDedup fill:#e1f5ff
+    style ComputeHash fill:#fff4e1
+    style CheckDup fill:#fff4e1
+    style DBQuery fill:#fff4e1
+```
+
+**Key Decision Points:**
+- **Deduplication Check:** Happens at request creation time. If duplicate found, request completes immediately without worker processing.
+- **Worker Dequeue:** Workers only dequeue non-deduplicated requests. Deduplicated requests are already Completed.
+- **Spot Interruption:** Spot workers may be interrupted, causing requeue to dedicated pool.
+- **Batch Finalization:** Only occurs when all requests (including deduplicated ones) are in final state.
 
 ## Components
 
