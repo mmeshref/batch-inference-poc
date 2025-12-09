@@ -25,9 +25,9 @@ data:
       - job_name: 'scheduler'
         metrics_path: /metrics
         static_configs:
-          - targets: ['scheduler:80']
+          - targets: ['scheduler:8080']
 
       - job_name: 'gpu-workers'
         metrics_path: /metrics
         static_configs:
-          - targets: ['gpu-worker-spot:80', 'gpu-worker-dedicated:80']
+          - targets: ['gpu-worker-spot:8080', 'gpu-worker-dedicated:8080']
