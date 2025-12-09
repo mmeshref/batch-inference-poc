@@ -59,6 +59,9 @@ public class DatabaseSchemaTests
         columnNames.Should().Contain("InputHash", "RequestEntity.InputHash should exist for deduplication");
         columnNames.Should().Contain("OriginalRequestId", "RequestEntity.OriginalRequestId should exist for deduplication");
         columnNames.Should().Contain("IsDeduplicated", "RequestEntity.IsDeduplicated should exist for deduplication");
+        
+        // Escalation tracking column (added for escalation status persistence)
+        columnNames.Should().Contain("WasEscalated", "RequestEntity.WasEscalated should exist for escalation tracking");
     }
 
     [Fact]
@@ -227,6 +230,98 @@ public class DatabaseSchemaTests
         duplicates.Should().HaveCount(2);
         duplicates.Should().Contain(r => r.IsDeduplicated == true);
         duplicates.Should().Contain(r => r.IsDeduplicated == false);
+    }
+
+    [Fact]
+    public async Task EnsureCreated_Should_CreateWasEscalatedColumn()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:");
+        await connection.OpenAsync();
+
+        var options = new DbContextOptionsBuilder<BatchDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new BatchDbContext(options);
+        db.Database.EnsureCreated();
+
+        var batchId = Guid.NewGuid();
+        var fileId = Guid.NewGuid();
+
+        // Create required file entity
+        db.Files.Add(new FileEntity
+        {
+            Id = fileId,
+            UserId = "user1",
+            Filename = "input.jsonl",
+            StoragePath = "/tmp/input.jsonl",
+            Purpose = "batch",
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        // Create a batch
+        db.Batches.Add(new BatchEntity
+        {
+            Id = batchId,
+            UserId = "user1",
+            InputFileId = fileId,
+            Status = "running",
+            Endpoint = "test",
+            CompletionWindow = TimeSpan.FromHours(24),
+            Priority = 1,
+            GpuPool = "spot",
+            CreatedAt = DateTimeOffset.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+
+        // Create a request with WasEscalated = false (default)
+        var normalRequest = new RequestEntity
+        {
+            Id = Guid.NewGuid(),
+            BatchId = batchId,
+            LineNumber = 1,
+            InputPayload = "{}",
+            Status = "Queued",
+            GpuPool = "spot",
+            WasEscalated = false,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        // Create a request with WasEscalated = true (escalated)
+        var escalatedRequest = new RequestEntity
+        {
+            Id = Guid.NewGuid(),
+            BatchId = batchId,
+            LineNumber = 2,
+            InputPayload = "{}",
+            Status = "Queued",
+            GpuPool = "dedicated",
+            WasEscalated = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        db.Requests.Add(normalRequest);
+        db.Requests.Add(escalatedRequest);
+        await db.SaveChangesAsync();
+
+        // Verify we can query by WasEscalated
+        var escalated = await db.Requests
+            .Where(r => r.WasEscalated == true)
+            .FirstOrDefaultAsync();
+
+        escalated.Should().NotBeNull("Should be able to query by WasEscalated");
+        escalated!.WasEscalated.Should().BeTrue();
+        escalated.GpuPool.Should().Be("dedicated");
+
+        // Verify default value is false
+        var normal = await db.Requests
+            .Where(r => r.WasEscalated == false)
+            .FirstOrDefaultAsync();
+
+        normal.Should().NotBeNull();
+        normal!.WasEscalated.Should().BeFalse();
+        normal.GpuPool.Should().Be("spot");
     }
 }
 
