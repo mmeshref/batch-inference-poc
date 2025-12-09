@@ -141,6 +141,7 @@ public sealed class RequestRepository : IRequestRepository
         {
             entity.Status = RequestStatuses.Queued;
             entity.GpuPool = GpuPools.Dedicated;
+            entity.WasEscalated = true;
             entity.AssignedWorker = null;
             entity.StartedAt = null;
             entity.CompletedAt = null;
@@ -148,6 +149,7 @@ public sealed class RequestRepository : IRequestRepository
 
             request.Status = RequestStatuses.Queued;
             request.GpuPool = GpuPools.Dedicated;
+            request.WasEscalated = true;
             request.AssignedWorker = null;
             request.StartedAt = null;
             request.CompletedAt = null;

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Shared;
@@ -67,6 +67,9 @@ public sealed class RequestEntity
     public string? InputHash { get; set; }
     public Guid? OriginalRequestId { get; set; }
     public bool IsDeduplicated { get; set; }
+    
+    // Escalation tracking
+    public bool WasEscalated { get; set; }
 
     public BatchEntity? Batch { get; set; }
 }
@@ -137,6 +140,7 @@ public sealed class BatchDbContext(DbContextOptions<BatchDbContext> options) : D
         entity.Property(r => r.GpuPool).IsRequired();
         entity.Property(r => r.CreatedAt).IsRequired();
         entity.Property(r => r.IsDeduplicated).HasDefaultValue(false);
+        entity.Property(r => r.WasEscalated).HasDefaultValue(false);
 
         // Index for deduplication lookups
         entity.HasIndex(r => r.InputHash)

@@ -68,6 +68,7 @@ public class BatchDetailsViewModelTests
         request.CompletedAt = createdAt.AddMinutes(15);
         request.ErrorMessage = "Simulated spot interruption – retrying on dedicated";
         request.GpuPool = GpuPools.Dedicated;
+        request.WasEscalated = true;
 
         var vm = BatchDetailsMapper.Map(batch);
         var completedRequest = vm.Requests.First(r => r.Status == RequestStatuses.Completed);

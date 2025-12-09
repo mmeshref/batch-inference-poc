@@ -261,6 +261,7 @@ public sealed class BatchSchedulerWorker : BackgroundService
                     timeToDeadline);
 
                 request.GpuPool = "dedicated";
+                request.WasEscalated = true;
                 batch.GpuPool = "dedicated";
                 updated = true;
                 escalationsByBatch[batch.Id] = escalationsByBatch.GetValueOrDefault(batch.Id) + 1;

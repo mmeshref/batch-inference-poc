@@ -43,7 +43,7 @@ internal static class BatchDetailsMapper
             {
                 var interrupted = !string.IsNullOrEmpty(r.ErrorMessage) &&
                                   r.ErrorMessage.Contains("Simulated spot interruption", StringComparison.OrdinalIgnoreCase);
-                var wasEscalated = string.Equals(r.GpuPool, GpuPools.Dedicated, StringComparison.OrdinalIgnoreCase) && interrupted;
+                var wasEscalated = r.WasEscalated;
                 var durationDisplay = BuildDurationDisplay(r.StartedAt, r.CompletedAt);
                 var history = BuildGpuPoolHistory(r, wasEscalated);
                 var retryCount = wasEscalated || interrupted ? 1 : 0;
